@@ -138,7 +138,7 @@ function createWindow() {
     width: 1200,
     height: 760,
     minWidth: 800,
-    minHeight: 500,
+    minHeight: 640,
     title: 'Music in Parts',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

@@ -132,6 +132,10 @@ ul {
   display: none;
 }
 
+#song-view > * {
+  flex: none;
+}
+
 #main.drop-target {
   outline: 2px dashed Highlight;
   outline-offset: -8px;
@@ -292,13 +296,26 @@ ul {
   color: HighlightText;
 }
 
+#chord-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin-top: 8px;
+  overflow-y: auto;
+}
+
 #inspector {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
-  flex: none;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  background: Canvas;
 }
 
 #inspector[hidden] {
@@ -306,17 +323,11 @@ ul {
 }
 
 #chord-check {
-  flex: none;
-  margin-top: 8px;
+  margin-bottom: 8px;
 }
 
 #chord-check summary {
   font-weight: 600;
-}
-
-#chord-check-body {
-  max-height: 140px;
-  overflow-y: auto;
 }
 
 .check-finding {
@@ -344,15 +355,8 @@ ul {
 }
 
 #chart-message {
-  margin-top: 16px;
-  color: GrayText;
-}
-
-#chart {
-  flex: 1;
-  min-height: 80px;
   margin-top: 8px;
-  overflow-y: auto;
+  color: GrayText;
 }
 
 .chart-section {
@@ -484,4 +488,16 @@ ul {
   background: color-mix(in srgb, Highlight 25%, transparent);
   border-right: 1px solid Highlight;
   border-left: 1px solid Highlight;
+}
+
+@media (max-height: 800px) {
+  :root {
+    --row-height: 32px;
+  }
+}
+
+@media (max-height: 640px) {
+  #inspector {
+    position: static;
+  }
 }

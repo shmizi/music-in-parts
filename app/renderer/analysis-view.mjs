@@ -89,6 +89,7 @@ export class AnalysisView {
     this.chordLane = document.getElementById('chord-lane');
     this.inspector = document.getElementById('inspector');
     this.chart = document.getElementById('chart');
+    this.area = document.getElementById('chord-area');
     this.chartMessage = document.getElementById('chart-message');
     this.chartMessageText = document.getElementById('chart-message-text');
     this.analyseButton = document.getElementById('analyse-song');
@@ -573,9 +574,22 @@ export class AnalysisView {
       cell?.classList.add('current');
       this.activeBarCell = cell;
 
-      if (cell && followPlayback) {
-        cell.scrollIntoView({ block: 'nearest' });
+      if (cell && followPlayback && !this.listening) {
+        this.keepInView(cell);
       }
+    }
+  }
+
+  keepInView(cell) {
+    const area = this.area.getBoundingClientRect();
+    const box = cell.getBoundingClientRect();
+    const pinned = getComputedStyle(this.inspector).position === 'sticky';
+    const covered = pinned && !this.inspector.hidden ? this.inspector.offsetHeight : 0;
+
+    if (box.top < area.top + covered) {
+      this.area.scrollTop -= area.top + covered - box.top;
+    } else if (box.bottom > area.bottom) {
+      this.area.scrollTop += box.bottom - area.bottom;
     }
   }
 }
