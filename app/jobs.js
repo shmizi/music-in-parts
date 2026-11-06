@@ -3,10 +3,11 @@ const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
-const { pythonPath, modelsDir, separateScript } = require('./paths');
+const { pythonPath, sitePackagesDir, modelsDir, separateScript } = require('./paths');
 const library = require('./library');
 
 const STDERR_LINES_KEPT = 20;
+const ENGINE_PACKAGES = ['torch', 'demucs', 'imageio_ffmpeg', 'soundfile.py'];
 
 class JobQueue {
   constructor(onChange, onSongFinished) {
@@ -86,8 +87,8 @@ class JobQueue {
     job.status = 'running';
     this.onChange();
 
-    if (!fs.existsSync(pythonPath)) {
-      this.fail(job, 'The audio engine is not installed. Run "npm run setup" in the project folder.');
+    if (!isEngineReady()) {
+      this.fail(job, 'The audio engine is not fully installed. Run "npm run setup" in the project folder, wait for "Engine is ready", then add the song again.');
       return;
     }
 
@@ -188,6 +189,12 @@ class JobQueue {
     this.onChange();
     this.runNext();
   }
+}
+
+function isEngineReady() {
+  const requiredPaths = [pythonPath, ...ENGINE_PACKAGES.map((name) => path.join(sitePackagesDir, name))];
+
+  return requiredPaths.every((requiredPath) => fs.existsSync(requiredPath));
 }
 
 function parseEvent(line) {
