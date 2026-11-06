@@ -3,23 +3,33 @@ const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
-const { pythonPath, sitePackagesDir, modelsDir, separateScript } = require('./paths');
+const {
+  pythonPath,
+  sitePackagesDir,
+  modelsDir,
+  chordModelPath,
+  separateScript,
+  analyseScript,
+} = require('./paths');
 const library = require('./library');
 
 const STDERR_LINES_KEPT = 20;
-const ENGINE_PACKAGES = ['torch', 'demucs', 'imageio_ffmpeg', 'soundfile.py'];
+const ENGINE_PACKAGES = ['torch', 'demucs', 'imageio_ffmpeg', 'soundfile.py', 'librosa', 'beat_this', 'sklearn'];
 
 class JobQueue {
-  constructor(onChange, onSongFinished) {
+  constructor({ onChange, onSongFinished, onAnalysisFinished }) {
     this.onChange = onChange;
     this.onSongFinished = onSongFinished;
+    this.onAnalysisFinished = onAnalysisFinished;
     this.jobs = [];
     this.child = null;
   }
 
   list() {
-    return this.jobs.map(({ id, title, status, stage, fraction, device, error }) => ({
+    return this.jobs.map(({ id, kind, songId, title, status, stage, fraction, device, error }) => ({
       id,
+      kind,
+      songId,
       title,
       status,
       stage,
@@ -29,20 +39,38 @@ class JobQueue {
     }));
   }
 
-  add(inputPath) {
+  enqueue(fields) {
     this.jobs.push({
       id: randomUUID(),
-      title: path.parse(inputPath).name,
-      inputPath,
       status: 'queued',
       stage: null,
       fraction: 0,
       device: null,
       error: null,
+      ...fields,
     });
 
     this.onChange();
     this.runNext();
+  }
+
+  addSong(inputPath) {
+    this.enqueue({
+      kind: 'separate',
+      songId: randomUUID(),
+      title: path.parse(inputPath).name,
+      inputPath,
+    });
+  }
+
+  addAnalysis(songId, title) {
+    const alreadyWaiting = this.jobs.some(
+      (job) => job.kind === 'analyse' && job.songId === songId && job.status !== 'failed',
+    );
+
+    if (!alreadyWaiting) {
+      this.enqueue({ kind: 'analyse', songId, title });
+    }
   }
 
   cancel(id) {
@@ -59,6 +87,12 @@ class JobQueue {
     }
 
     this.dismiss(id);
+  }
+
+  cancelForSong(songId) {
+    this.jobs
+      .filter((job) => job.songId === songId)
+      .forEach((job) => this.cancel(job.id));
   }
 
   dismiss(id) {
@@ -83,28 +117,32 @@ class JobQueue {
     }
   }
 
+  commandFor(job) {
+    if (job.kind === 'separate') {
+      return [separateScript, '--input', job.inputPath, '--output', library.tempDir(job.songId)];
+    }
+
+    return [analyseScript, '--song-dir', library.songDir(job.songId), '--chord-model', chordModelPath];
+  }
+
   start(job) {
     job.status = 'running';
     this.onChange();
 
     if (!isEngineReady()) {
-      this.fail(job, 'The audio engine is not fully installed. Run "npm run setup" in the project folder, wait for "Engine is ready", then add the song again.');
+      this.fail(job, 'The audio engine is not fully installed. Run "npm run setup" in the project folder, wait for "Engine is ready", then try again.');
       return;
     }
 
-    const child = spawn(
-      pythonPath,
-      [separateScript, '--input', job.inputPath, '--output', library.tempDir(job.id)],
-      {
-        windowsHide: true,
-        env: {
-          ...process.env,
-          TORCH_HOME: modelsDir,
-          PYTHONUNBUFFERED: '1',
-          PYTHONUTF8: '1',
-        },
+    const child = spawn(pythonPath, this.commandFor(job), {
+      windowsHide: true,
+      env: {
+        ...process.env,
+        TORCH_HOME: modelsDir,
+        PYTHONUNBUFFERED: '1',
+        PYTHONUTF8: '1',
       },
-    );
+    });
 
     this.child = child;
     const stderrLines = [];
@@ -140,32 +178,33 @@ class JobQueue {
 
     child.on('close', async () => {
       this.child = null;
-      await this.finish(job, result, engineError ?? stderrLines.at(-1));
+
+      if (job.kind === 'separate') {
+        await this.finishSeparation(job, result, engineError ?? stderrLines.at(-1));
+      } else {
+        this.finishAnalysis(job, result, engineError ?? stderrLines.at(-1));
+      }
+
       this.runNext();
     });
   }
 
-  async finish(job, result, errorMessage) {
-    if (!this.jobs.includes(job)) {
-      await library.deleteTemp(job.id);
-      return;
-    }
-
-    if (job.cancelled) {
-      await library.deleteTemp(job.id);
+  async finishSeparation(job, result, errorMessage) {
+    if (!this.jobs.includes(job) || job.cancelled) {
+      await library.deleteTemp(job.songId);
       this.dismiss(job.id);
       return;
     }
 
     if (!result) {
-      await library.deleteTemp(job.id);
+      await library.deleteTemp(job.songId);
       this.fail(job, errorMessage ?? 'The audio engine stopped unexpectedly.');
       return;
     }
 
     try {
-      await library.finishSong(job.id, {
-        id: job.id,
+      await library.finishSong(job.songId, {
+        id: job.songId,
         title: job.title,
         createdAt: new Date().toISOString(),
         duration: result.duration,
@@ -176,11 +215,28 @@ class JobQueue {
 
       this.jobs = this.jobs.filter((candidate) => candidate !== job);
       this.onChange();
-      this.onSongFinished(job.id);
+      this.onSongFinished(job.songId);
+      this.enqueue({ kind: 'analyse', songId: job.songId, title: job.title });
     } catch (error) {
-      await library.deleteTemp(job.id);
+      await library.deleteTemp(job.songId);
       this.fail(job, error.message);
     }
+  }
+
+  finishAnalysis(job, result, errorMessage) {
+    if (!this.jobs.includes(job) || job.cancelled) {
+      this.dismiss(job.id);
+      return;
+    }
+
+    if (!result) {
+      this.fail(job, errorMessage ?? 'The audio engine stopped unexpectedly.');
+      return;
+    }
+
+    this.jobs = this.jobs.filter((candidate) => candidate !== job);
+    this.onChange();
+    this.onAnalysisFinished(job.songId);
   }
 
   fail(job, message) {
@@ -192,7 +248,11 @@ class JobQueue {
 }
 
 function isEngineReady() {
-  const requiredPaths = [pythonPath, ...ENGINE_PACKAGES.map((name) => path.join(sitePackagesDir, name))];
+  const requiredPaths = [
+    pythonPath,
+    chordModelPath,
+    ...ENGINE_PACKAGES.map((name) => path.join(sitePackagesDir, name)),
+  ];
 
   return requiredPaths.every((requiredPath) => fs.existsSync(requiredPath));
 }

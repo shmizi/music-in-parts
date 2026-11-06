@@ -41,16 +41,47 @@
         <button id="clear-loop" type="button" disabled>Clear Loop</button>
       </div>
 
+      <div id="song-info" hidden>
+        <label>Key <input id="key-input" type="text" size="10"></label>
+        <span id="key-note" class="note"></span>
+        <label>Tempo <input id="tempo-input" type="number" min="1" max="400" step="0.1"></label>
+        <span id="tempo-note" class="note"></span>
+        <button id="revert-analysis" type="button" hidden>Revert My Changes</button>
+        <span id="chord-now">
+          Now <strong id="now-chord">-</strong>
+          Next <span id="next-chord">-</span>
+        </span>
+      </div>
+
+      <p id="chord-warning" hidden></p>
       <p id="song-status" role="status"></p>
-      <p id="hint">Click a waveform to jump there. Drag across one to loop that section.</p>
+      <p id="hint">Click a waveform to jump there, or drag across one to loop. A "?" marks a chord to check by ear. Section names are guesses, and you can click anything to correct it.</p>
 
       <div id="tracks">
+        <div id="lanes" hidden>
+          <div class="lane-row">
+            <div class="lane-name">Sections</div>
+            <div id="section-lane" class="lane"></div>
+          </div>
+          <div class="lane-row">
+            <div class="lane-name">Chords</div>
+            <div id="chord-lane" class="lane"></div>
+          </div>
+        </div>
         <div id="track-rows"></div>
         <div id="overlay">
           <div id="loop-region" hidden></div>
           <div id="playhead"></div>
         </div>
       </div>
+
+      <div id="inspector" hidden></div>
+
+      <div id="chart-message" hidden>
+        <p id="chart-message-text"></p>
+        <button id="analyse-song" type="button">Analyse This Song</button>
+      </div>
+      <div id="chart"></div>
     </div>
   </main>
 

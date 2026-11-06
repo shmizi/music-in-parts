@@ -2,3 +2,7 @@ demucs==4.0.1
 soundfile
 imageio-ffmpeg
 numpy
+beat-this==1.1.0
+librosa
+scikit-learn
+scipy

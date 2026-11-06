@@ -8,7 +8,8 @@
     "start": "electron .",
     "setup": "node scripts/setup-engine.js",
     "test": "node --test",
-    "shortcut": "powershell -ExecutionPolicy Bypass -File scripts/create-shortcut.ps1"
+    "shortcut": "powershell -ExecutionPolicy Bypass -File scripts/create-shortcut.ps1",
+    "test:engine": "node scripts/test-engine.js"
   },
   "devDependencies": {
     "electron": "^45.2.3"

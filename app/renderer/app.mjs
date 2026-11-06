@@ -1,3 +1,4 @@
+import { AnalysisView } from './analysis-view.mjs';
 import { Player, computePeaks } from './player.mjs';
 
 const STEM_ORDER = ['vocals', 'drums', 'bass', 'guitar', 'piano', 'other'];
@@ -9,7 +10,12 @@ const STAGE_LABELS = {
   decoding: 'Reading the file',
   'loading-model': 'Loading the model',
   separating: 'Separating stems',
-  writing: 'Saving stems',
+  writing: 'Saving',
+  'reading-stems': 'Reading the stems',
+  'finding-beats': 'Finding the beat',
+  'finding-chords': 'Finding the chords',
+  'finding-key': 'Finding the key',
+  'finding-sections': 'Finding the sections',
 };
 
 const elements = {
@@ -46,6 +52,7 @@ const state = {
   scrubbing: false,
   loop: null,
   loadToken: 0,
+  jobs: [],
 };
 
 const player = new Player({
@@ -54,6 +61,20 @@ const player = new Player({
     showPosition();
   },
   onEnded: () => setPlaying(false),
+});
+
+const analysisView = new AnalysisView({
+  getPosition: () => state.position,
+  getSong: () => state.current,
+  seekTo,
+  loopSection: (start, end) => applyLoop(start, end),
+  onEdited: async (analysis) => {
+    try {
+      await window.api.saveAnalysis(state.current.id, analysis);
+    } catch (error) {
+      setStatus(`Could not save your change: ${error.message}`);
+    }
+  },
 });
 
 function formatTime(seconds) {
@@ -82,6 +103,8 @@ function showPosition() {
   if (!state.scrubbing) {
     elements.seek.value = state.position;
   }
+
+  analysisView.update(state.position, state.playing);
 }
 
 function setPlaying(playing) {
@@ -314,8 +337,41 @@ function renderSongs() {
   elements.libraryEmpty.hidden = state.songs.length > 0;
 }
 
+function isAnalysing(songId) {
+  return state.jobs.some(
+    (job) => job.kind === 'analyse' && job.songId === songId && job.status !== 'failed',
+  );
+}
+
+async function loadAnalysis() {
+  const song = state.current;
+
+  if (!song) {
+    return;
+  }
+
+  const result = await window.api.readAnalysis(song.id);
+
+  if (state.current?.id !== song.id) {
+    return;
+  }
+
+  if (result) {
+    analysisView.show(result.analysis, result.edited);
+  } else {
+    analysisView.showMissing({ analysing: isAnalysing(song.id) });
+  }
+}
+
 function renderJobs(jobs) {
+  const wasAnalysing = state.current ? isAnalysing(state.current.id) : false;
+
+  state.jobs = jobs;
   elements.jobsSection.hidden = jobs.length === 0;
+
+  if (state.current && wasAnalysing !== isAnalysing(state.current.id) && !analysisView.analysis) {
+    analysisView.showMissing({ analysing: isAnalysing(state.current.id) });
+  }
 
   elements.jobs.replaceChildren(
     ...jobs.map((job) => {
@@ -369,6 +425,10 @@ function describeJob(job) {
 
   const stage = STAGE_LABELS[job.stage] ?? 'Starting';
 
+  if (job.kind === 'analyse') {
+    return stage;
+  }
+
   if (job.stage === 'separating') {
     const percent = Math.round(job.fraction * 100);
     const device = job.device === 'cuda' ? 'graphics card' : 'CPU, this will be slow';
@@ -415,9 +475,12 @@ async function openSong(song) {
   elements.trackRows.replaceChildren();
   elements.loopRegion.hidden = true;
   elements.clearLoop.disabled = true;
+  player.setLoop(null, null);
   setStatus('Loading stems...');
+  analysisView.showMissing({ analysing: isAnalysing(song.id) });
   showPosition();
   renderSongs();
+  loadAnalysis();
 
   try {
     const names = STEM_ORDER.filter((name) => song.stems.includes(name));
@@ -491,6 +554,18 @@ function bindControls() {
     }
   });
 
+  document.getElementById('analyse-song').addEventListener('click', () => {
+    window.api.analyseSong(state.current.id);
+  });
+
+  document.getElementById('revert-analysis').addEventListener('click', async () => {
+    const reverted = await window.api.revertAnalysis(state.current.id);
+
+    if (reverted) {
+      await loadAnalysis();
+    }
+  });
+
   elements.deleteSong.addEventListener('click', async () => {
     const deleted = await window.api.deleteSong(state.current.id);
 
@@ -501,7 +576,9 @@ function bindControls() {
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.code === 'Space' && !event.repeat) {
+    const typing = event.target.matches?.('input[type="text"], input[type="number"]');
+
+    if (event.code === 'Space' && !event.repeat && !typing) {
       event.preventDefault();
       togglePlaying();
     }
@@ -546,6 +623,12 @@ async function start() {
     if (!state.current) {
       const finished = state.songs.find((song) => song.id === songId);
       openSong(finished);
+    }
+  });
+
+  window.api.onAnalysisFinished((songId) => {
+    if (state.current?.id === songId) {
+      loadAnalysis();
     }
   });
 

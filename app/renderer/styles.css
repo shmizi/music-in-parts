@@ -1,7 +1,8 @@
 :root {
   color-scheme: light dark;
   --controls-width: 250px;
-  --row-height: 72px;
+  --row-height: 40px;
+  --lane-height: 24px;
   --border: color-mix(in srgb, CanvasText 20%, Canvas);
 }
 
@@ -112,10 +113,23 @@ ul {
 }
 
 #main {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
   padding: 16px;
-  overflow-y: auto;
+  overflow: hidden;
+}
+
+#song-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#song-view[hidden] {
+  display: none;
 }
 
 #main.drop-target {
@@ -168,19 +182,195 @@ ul {
 }
 
 #song-status {
-  min-height: 18px;
   margin: 0;
 }
 
+#song-status:empty {
+  display: none;
+}
+
 #hint {
+  flex: none;
   margin: 0 0 8px;
   color: GrayText;
   font-size: 12px;
 }
 
+#song-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: 8px;
+}
+
+#song-info[hidden] {
+  display: none;
+}
+
+#tempo-input {
+  width: 64px;
+}
+
+.note {
+  color: GrayText;
+  font-size: 12px;
+}
+
+#chord-now {
+  margin-left: auto;
+  font-size: 16px;
+}
+
+#now-chord {
+  display: inline-block;
+  min-width: 56px;
+  font-size: 22px;
+}
+
+#next-chord {
+  display: inline-block;
+  min-width: 56px;
+  color: GrayText;
+}
+
+#chord-warning {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
 #tracks {
   position: relative;
+  flex: none;
   border-top: 1px solid var(--border);
+}
+
+.lane-row {
+  display: flex;
+  height: var(--lane-height);
+  border-bottom: 1px solid var(--border);
+}
+
+.lane-name {
+  flex: none;
+  width: var(--controls-width);
+  align-self: center;
+  font-weight: 600;
+}
+
+.lane {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.lane-block {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  min-width: 0;
+  padding: 0 3px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: color-mix(in srgb, CanvasText 6%, Canvas);
+  color: inherit;
+  font: 11px system-ui, sans-serif;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.lane-block.doubtful {
+  border-style: dashed;
+  color: GrayText;
+}
+
+.lane-block.selected {
+  background: Highlight;
+  color: HighlightText;
+}
+
+#inspector {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#inspector[hidden] {
+  display: none;
+}
+
+#chart-message {
+  margin-top: 16px;
+  color: GrayText;
+}
+
+#chart {
+  flex: 1;
+  min-height: 80px;
+  margin-top: 8px;
+  overflow-y: auto;
+}
+
+.chart-section {
+  margin-bottom: 10px;
+}
+
+.chart-heading {
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: 600 13px system-ui, sans-serif;
+  white-space: pre;
+}
+
+.chart-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+.chart-bar {
+  display: flex;
+  gap: 2px;
+  min-height: 28px;
+  padding: 2px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-bar.current {
+  background: color-mix(in srgb, Highlight 30%, Canvas);
+}
+
+.chart-chord {
+  flex: 1;
+  min-width: 0;
+  padding: 2px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: 600 13px system-ui, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-chord:hover {
+  background: color-mix(in srgb, CanvasText 10%, Canvas);
+}
+
+.chart-chord.doubtful {
+  color: GrayText;
+  font-weight: 400;
 }
 
 .track {
@@ -192,11 +382,11 @@ ul {
 .track-controls {
   flex: none;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 52px auto auto 1fr;
   align-items: center;
-  gap: 4px 6px;
+  gap: 4px;
   width: var(--controls-width);
-  padding: 8px 10px 8px 0;
+  padding: 4px 10px 4px 0;
 }
 
 .track-name {
@@ -205,8 +395,8 @@ ul {
 }
 
 .track-controls input[type="range"] {
-  grid-column: 1 / -1;
   width: 100%;
+  min-width: 0;
   margin: 0;
 }
 

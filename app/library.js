@@ -5,6 +5,8 @@ const { libraryDir } = require('./paths');
 const SONG_ID = /^[0-9a-f-]{36}$/;
 const STEM_NAME = /^[a-z]+$/;
 const TEMP_SUFFIX = '.tmp';
+const ANALYSIS_FILE = 'analysis.json';
+const EDITED_ANALYSIS_FILE = 'analysis-edited.json';
 
 function songDir(id) {
   if (!SONG_ID.test(id)) {
@@ -65,7 +67,7 @@ async function finishSong(id, song) {
 }
 
 async function deleteSong(id) {
-  await fs.rm(songDir(id), { recursive: true, force: true });
+  await fs.rm(songDir(id), { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
 
 async function deleteTemp(id) {
@@ -79,6 +81,46 @@ async function readStem(id, stem) {
 async function readSong(id) {
   const text = await fs.readFile(path.join(songDir(id), 'song.json'), 'utf8');
   return JSON.parse(text);
+}
+
+async function readJsonIfPresent(filePath) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function readAnalysis(id) {
+  const edited = await readJsonIfPresent(path.join(songDir(id), EDITED_ANALYSIS_FILE));
+
+  if (edited) {
+    return { analysis: edited, edited: true };
+  }
+
+  const automatic = await readJsonIfPresent(path.join(songDir(id), ANALYSIS_FILE));
+
+  return automatic ? { analysis: automatic, edited: false } : null;
+}
+
+async function saveEditedAnalysis(id, analysis) {
+  if (!Array.isArray(analysis?.chords) || !Array.isArray(analysis?.sections)) {
+    throw new Error('Invalid analysis');
+  }
+
+  const target = path.join(songDir(id), EDITED_ANALYSIS_FILE);
+  const temporary = `${target}${TEMP_SUFFIX}`;
+
+  await fs.writeFile(temporary, JSON.stringify(analysis, null, 1));
+  await fs.rename(temporary, target);
+}
+
+async function revertAnalysis(id) {
+  await fs.rm(path.join(songDir(id), EDITED_ANALYSIS_FILE), { force: true });
 }
 
 function safeFileName(name) {
@@ -97,6 +139,7 @@ async function exportStems(id, targetDir) {
 }
 
 module.exports = {
+  songDir,
   tempDir,
   removeUnfinished,
   listSongs,
@@ -105,5 +148,8 @@ module.exports = {
   deleteTemp,
   readStem,
   readSong,
+  readAnalysis,
+  saveEditedAnalysis,
+  revertAnalysis,
   exportStems,
 };

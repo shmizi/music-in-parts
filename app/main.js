@@ -9,10 +9,11 @@ const AUDIO_EXTENSIONS = [
 
 let mainWindow = null;
 
-const queue = new JobQueue(
-  () => send('jobs-changed', queue.list()),
-  (songId) => send('song-finished', songId),
-);
+const queue = new JobQueue({
+  onChange: () => send('jobs-changed', queue.list()),
+  onSongFinished: (songId) => send('song-finished', songId),
+  onAnalysisFinished: (songId) => send('analysis-finished', songId),
+});
 
 function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -31,7 +32,7 @@ async function chooseSongs() {
   });
 
   if (!result.canceled) {
-    result.filePaths.forEach((filePath) => queue.add(filePath));
+    result.filePaths.forEach((filePath) => queue.addSong(filePath));
   }
 }
 
@@ -65,7 +66,31 @@ async function deleteSong(songId) {
     return false;
   }
 
+  queue.cancelForSong(songId);
   await library.deleteSong(songId);
+  return true;
+}
+
+async function analyseSong(songId) {
+  const song = await library.readSong(songId);
+  queue.addAnalysis(songId, song.title);
+}
+
+async function revertAnalysis(songId) {
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    buttons: ['Discard My Changes', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    message: 'Go back to the automatic analysis?',
+    detail: 'Your changes to the chords, sections, key and tempo for this song will be lost.',
+  });
+
+  if (response !== 0) {
+    return false;
+  }
+
+  await library.revertAnalysis(songId);
   return true;
 }
 
@@ -73,11 +98,15 @@ function registerHandlers() {
   ipcMain.handle('list-songs', () => library.listSongs());
   ipcMain.handle('list-jobs', () => queue.list());
   ipcMain.handle('choose-songs', () => chooseSongs());
-  ipcMain.handle('add-paths', (_, paths) => paths.forEach((filePath) => queue.add(filePath)));
+  ipcMain.handle('add-paths', (_, paths) => paths.forEach((filePath) => queue.addSong(filePath)));
   ipcMain.handle('cancel-job', (_, jobId) => queue.cancel(jobId));
   ipcMain.handle('read-stem', (_, songId, stem) => library.readStem(songId, stem));
   ipcMain.handle('export-stems', (_, songId) => exportStems(songId));
   ipcMain.handle('delete-song', (_, songId) => deleteSong(songId));
+  ipcMain.handle('analyse-song', (_, songId) => analyseSong(songId));
+  ipcMain.handle('read-analysis', (_, songId) => library.readAnalysis(songId));
+  ipcMain.handle('save-analysis', (_, songId, analysis) => library.saveEditedAnalysis(songId, analysis));
+  ipcMain.handle('revert-analysis', (_, songId) => revertAnalysis(songId));
 }
 
 function buildMenu() {
