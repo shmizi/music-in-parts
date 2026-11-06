@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+  <title>Music in Parts</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside id="sidebar">
+    <button id="add-songs" type="button">Add Songs...</button>
+    <section id="jobs-section" hidden>
+      <h2>Processing</h2>
+      <ul id="jobs"></ul>
+    </section>
+    <h2>Library</h2>
+    <ul id="songs"></ul>
+    <p id="library-empty">No songs yet.</p>
+  </aside>
+
+  <main id="main">
+    <div id="empty-state">
+      <p>Drop a song here, or use Add Songs.</p>
+    </div>
+
+    <div id="song-view" hidden>
+      <header id="song-header">
+        <h1 id="song-title"></h1>
+        <button id="export-stems" type="button">Export Stems...</button>
+        <button id="delete-song" type="button">Delete</button>
+      </header>
+
+      <div id="transport">
+        <button id="play" type="button">Play</button>
+        <span id="time">0:00 / 0:00</span>
+        <input id="seek" type="range" min="0" max="1" step="0.01" value="0" aria-label="Position">
+        <label>Speed
+          <input id="speed" type="range" min="50" max="100" step="5" value="100">
+          <span id="speed-value">100%</span>
+        </label>
+        <button id="clear-loop" type="button" disabled>Clear Loop</button>
+      </div>
+
+      <p id="song-status" role="status"></p>
+      <p id="hint">Click a waveform to jump there. Drag across one to loop that section.</p>
+
+      <div id="tracks">
+        <div id="track-rows"></div>
+        <div id="overlay">
+          <div id="loop-region" hidden></div>
+          <div id="playhead"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="app.mjs"></script>
+</body>
+</html>

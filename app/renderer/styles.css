@@ -1,0 +1,259 @@
+:root {
+  color-scheme: light dark;
+  --controls-width: 250px;
+  --row-height: 72px;
+  --border: color-mix(in srgb, CanvasText 20%, Canvas);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  background: Canvas;
+  color: CanvasText;
+  font: 14px system-ui, sans-serif;
+}
+
+h1 {
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+h2 {
+  margin: 16px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#sidebar {
+  flex: none;
+  width: 260px;
+  padding: 12px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+}
+
+#add-songs {
+  width: 100%;
+}
+
+#songs button {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#songs button:hover {
+  background: color-mix(in srgb, CanvasText 8%, Canvas);
+}
+
+#songs button[aria-current="true"] {
+  background: Highlight;
+  color: HighlightText;
+}
+
+#library-empty {
+  margin: 6px 0;
+  color: GrayText;
+}
+
+.job {
+  margin-bottom: 10px;
+}
+
+.job-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-detail {
+  color: GrayText;
+  font-size: 12px;
+}
+
+.job-error {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.job progress {
+  display: block;
+  width: 100%;
+  margin: 4px 0;
+}
+
+#main {
+  flex: 1;
+  min-width: 0;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+#main.drop-target {
+  outline: 2px dashed Highlight;
+  outline-offset: -8px;
+}
+
+#empty-state {
+  margin-top: 80px;
+  color: GrayText;
+  text-align: center;
+}
+
+#song-header,
+#transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+#transport label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#time {
+  flex: none;
+  min-width: 100px;
+  font-variant-numeric: tabular-nums;
+}
+
+#seek {
+  flex: 1;
+  min-width: 80px;
+}
+
+#speed {
+  width: 90px;
+}
+
+#speed-value {
+  width: 36px;
+  font-variant-numeric: tabular-nums;
+}
+
+#play {
+  min-width: 64px;
+}
+
+#song-status {
+  min-height: 18px;
+  margin: 0;
+}
+
+#hint {
+  margin: 0 0 8px;
+  color: GrayText;
+  font-size: 12px;
+}
+
+#tracks {
+  position: relative;
+  border-top: 1px solid var(--border);
+}
+
+.track {
+  display: flex;
+  height: var(--row-height);
+  border-bottom: 1px solid var(--border);
+}
+
+.track-controls {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 4px 6px;
+  width: var(--controls-width);
+  padding: 8px 10px 8px 0;
+}
+
+.track-name {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.track-controls input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 0;
+}
+
+.track-controls button {
+  min-width: 28px;
+}
+
+.track-controls button[aria-pressed="true"] {
+  background: Highlight;
+  color: HighlightText;
+}
+
+.track-wave {
+  flex: 1;
+  min-width: 0;
+  cursor: text;
+}
+
+.track-wave canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--controls-width);
+  pointer-events: none;
+}
+
+#playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: CanvasText;
+}
+
+#loop-region {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, Highlight 25%, transparent);
+  border-right: 1px solid Highlight;
+  border-left: 1px solid Highlight;
+}
