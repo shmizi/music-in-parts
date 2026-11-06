@@ -16,6 +16,7 @@ const STAGE_LABELS = {
   'finding-chords': 'Finding the chords',
   'finding-key': 'Finding the key',
   'finding-sections': 'Finding the sections',
+  'comparing-chords': 'Comparing the chords',
 };
 
 const elements = {
@@ -68,6 +69,16 @@ const analysisView = new AnalysisView({
   getSong: () => state.current,
   seekTo,
   loopSection: (start, end) => applyLoop(start, end),
+  playRange: (start, end) => {
+    applyLoop(start, end);
+
+    if (!state.playing) {
+      togglePlaying();
+    }
+  },
+  stopListening: () => clearLoop(),
+  analyseAgain: () => window.api.analyseSong(state.current.id),
+  isAnalysing: () => isAnalysing(state.current?.id),
   onEdited: async (analysis) => {
     try {
       await window.api.saveAnalysis(state.current.id, analysis);
@@ -357,7 +368,7 @@ async function loadAnalysis() {
   }
 
   if (result) {
-    analysisView.show(result.analysis, result.edited);
+    analysisView.show(result.analysis, result.edited, result.evidence);
   } else {
     analysisView.showMissing({ analysing: isAnalysing(song.id) });
   }
@@ -369,8 +380,12 @@ function renderJobs(jobs) {
   state.jobs = jobs;
   elements.jobsSection.hidden = jobs.length === 0;
 
-  if (state.current && wasAnalysing !== isAnalysing(state.current.id) && !analysisView.analysis) {
-    analysisView.showMissing({ analysing: isAnalysing(state.current.id) });
+  if (state.current && wasAnalysing !== isAnalysing(state.current.id)) {
+    if (analysisView.analysis) {
+      analysisView.renderCheck();
+    } else {
+      analysisView.showMissing({ analysing: isAnalysing(state.current.id) });
+    }
   }
 
   elements.jobs.replaceChildren(

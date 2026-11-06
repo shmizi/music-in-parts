@@ -4,6 +4,7 @@ import numpy as np
 
 import beats
 import chords
+import evidence
 import keys
 import music_theory
 import sections
@@ -52,6 +53,33 @@ class ViterbiTests(unittest.TestCase):
         probabilities[5:, 2] = 0.9
 
         self.assertEqual(chords.viterbi(probabilities).tolist(), [0] * 5 + [2] * 5)
+
+
+class EvidenceTests(unittest.TestCase):
+    def tone(self, frequency, seconds=2.0):
+        times = np.arange(int(seconds * evidence.SAMPLE_RATE)) / evidence.SAMPLE_RATE
+        return np.sin(2 * np.pi * frequency * times).astype(np.float32)
+
+    def test_a_note_shows_up_under_its_name(self):
+        grid = np.array([0.5, 1.0, 1.5])
+        levels = evidence.note_levels(self.tone(440.0), grid)
+
+        self.assertEqual(levels.shape, (2, 12))
+        self.assertEqual(int(np.argmax(levels[0])), 9)
+
+    def test_notes_under_the_lowest_note_are_ignored(self):
+        grid = np.array([0.5, 1.5])
+        low = self.tone(55.0) * 0.9 + self.tone(440.0 * 2 ** (3 / 12)) * 0.1
+
+        self.assertEqual(int(np.argmax(evidence.note_levels(low, grid)[0])), 0)
+
+    def test_the_bass_is_only_used_when_nothing_else_is_playing(self):
+        upper = self.tone(440.0)
+        full = upper + self.tone(55.0)
+        silent = np.zeros_like(upper)
+
+        self.assertIs(evidence.choose_signal(upper, full), upper)
+        self.assertIs(evidence.choose_signal(silent, full), full)
 
 
 class TempoTests(unittest.TestCase):

@@ -305,6 +305,44 @@ ul {
   display: none;
 }
 
+#chord-check {
+  flex: none;
+  margin-top: 8px;
+}
+
+#chord-check summary {
+  font-weight: 600;
+}
+
+#chord-check-body {
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.check-finding {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.check-message {
+  flex: 1 1 280px;
+}
+
+#inspector-evidence {
+  flex: 1 1 100%;
+  font-size: 12px;
+}
+
+.chart-chord.flagged,
+.lane-block.flagged {
+  text-decoration: underline wavy;
+  text-underline-offset: 2px;
+}
+
 #chart-message {
   margin-top: 16px;
   color: GrayText;

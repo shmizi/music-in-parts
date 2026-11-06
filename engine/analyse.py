@@ -10,6 +10,7 @@ import torch
 
 import beats as beat_tracking
 import chords as chord_finding
+import evidence as note_evidence
 import keys as key_finding
 import sections as section_finding
 
@@ -19,6 +20,7 @@ ANALYSIS_VERSION = 1
 
 ANALYSIS_RATE = 22050
 HARMONY_STEMS = ("bass", "guitar", "piano", "other")
+UPPER_HARMONY_STEMS = ("guitar", "piano", "other")
 
 # below this average model confidence, the chord names are too doubtful to rely on
 RELIABLE_CONFIDENCE = 0.35
@@ -30,6 +32,12 @@ RELIABLE_CHANGES_PER_MINUTE = 2.0
 def emit(event_type, **fields):
     EVENT_STREAM.write(json.dumps({"type": event_type, **fields}) + "\n")
     EVENT_STREAM.flush()
+
+
+def write_json(path, value):
+    temporary_path = path.with_name(path.name + ".tmp")
+    temporary_path.write_text(json.dumps(value), encoding="utf-8")
+    temporary_path.replace(path)
 
 
 def read_stems(song_dir):
@@ -65,6 +73,9 @@ def main():
     mix_low = librosa.resample(mix, orig_sr=sample_rate, target_sr=ANALYSIS_RATE)
     harmony_low = librosa.resample(harmony, orig_sr=sample_rate, target_sr=ANALYSIS_RATE)
 
+    upper = np.sum([stems[name] for name in UPPER_HARMONY_STEMS if name in stems], axis=0)
+    upper_low = librosa.resample(upper, orig_sr=sample_rate, target_sr=ANALYSIS_RATE)
+
     emit("stage", stage="finding-beats", device=device)
     beats, downbeats = beat_tracking.find_beats(mix, sample_rate, device)
     tempo = beat_tracking.summarise_tempo(beats, downbeats)
@@ -84,6 +95,10 @@ def main():
     emit("stage", stage="finding-sections", device=device)
     sections = section_finding.find_sections(mix_low, beats, downbeats, duration)
 
+    emit("stage", stage="comparing-chords", device=device)
+    grid = chord_finding.build_time_grid(beats, duration)
+    chord_evidence = note_evidence.build_evidence(upper_low, harmony_low, grid)
+
     emit("stage", stage="writing")
 
     analysis = {
@@ -99,10 +114,8 @@ def main():
         "sections": sections,
     }
 
-    output_path = args.song_dir / "analysis.json"
-    temporary_path = args.song_dir / "analysis.json.tmp"
-    temporary_path.write_text(json.dumps(analysis, indent=1), encoding="utf-8")
-    temporary_path.replace(output_path)
+    write_json(args.song_dir / "chord-evidence.json", chord_evidence)
+    write_json(args.song_dir / "analysis.json", analysis)
 
     emit("done", device=device)
 

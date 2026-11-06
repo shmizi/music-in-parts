@@ -4,7 +4,8 @@ A personal desktop app for learning and arranging song covers. Add a song and it
 
 - **Practise:** mute, solo, loop or slow down any part while you play along, following the current and next chord.
 - **Read:** a chord chart shows every bar, grouped by section, and follows the song as it plays.
-- **Correct:** click any chord or section to rename, split or merge it. Your changes are saved with the song and can be reverted.
+- **Check:** Chord Check compares every copy of a chord, flags names that don't match what it hears, and lets you step through and play each copy.
+- **Correct:** click any chord or section to rename, split or merge it, or change every copy at once. Your changes are saved with the song and can be reverted.
 - **Export:** save the stems as WAV files.
 
 Everything runs on your own computer.
@@ -37,6 +38,7 @@ npm run shortcut
 - `app/` is the Electron app: `main.js` for the window and file access, `jobs.js` for the processing queue, `renderer/` for the interface, mixer and chord chart.
 - `engine/separate.py` decodes a song and splits it with the Demucs `htdemucs_6s` model.
 - `engine/analyse.py` finds the beat with Beat This!, the chords with BTC, and the key and sections with signal analysis. The section names are guesses.
+- `engine/evidence.py` records how strong each note is on every beat, and `app/renderer/chord-check.mjs` compares chords using those levels.
 - `engine/btc/` is the BTC model code from [BTC-ISMIR19](https://github.com/jayg996/BTC-ISMIR19), under its own MIT licence.
 - Songs and the downloaded models are stored in `%LOCALAPPDATA%\MusicInParts`.
 

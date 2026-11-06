@@ -7,6 +7,7 @@ const STEM_NAME = /^[a-z]+$/;
 const TEMP_SUFFIX = '.tmp';
 const ANALYSIS_FILE = 'analysis.json';
 const EDITED_ANALYSIS_FILE = 'analysis-edited.json';
+const EVIDENCE_FILE = 'chord-evidence.json';
 
 function songDir(id) {
   if (!SONG_ID.test(id)) {
@@ -96,15 +97,16 @@ async function readJsonIfPresent(filePath) {
 }
 
 async function readAnalysis(id) {
+  const evidence = await readJsonIfPresent(path.join(songDir(id), EVIDENCE_FILE));
   const edited = await readJsonIfPresent(path.join(songDir(id), EDITED_ANALYSIS_FILE));
 
   if (edited) {
-    return { analysis: edited, edited: true };
+    return { analysis: edited, edited: true, evidence };
   }
 
   const automatic = await readJsonIfPresent(path.join(songDir(id), ANALYSIS_FILE));
 
-  return automatic ? { analysis: automatic, edited: false } : null;
+  return automatic ? { analysis: automatic, edited: false, evidence } : null;
 }
 
 async function saveEditedAnalysis(id, analysis) {

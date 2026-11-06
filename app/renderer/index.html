@@ -55,7 +55,7 @@
 
       <p id="chord-warning" hidden></p>
       <p id="song-status" role="status"></p>
-      <p id="hint">Click a waveform to jump there, or drag across one to loop. A "?" marks a chord to check by ear. Section names are guesses, and you can click anything to correct it.</p>
+      <p id="hint">Click a waveform to jump there, or drag across one to loop. A "?" marks a chord the model is unsure of, and an underline marks one Chord Check wants you to compare. Section names are guesses. Click anything to correct it.</p>
 
       <div id="tracks">
         <div id="lanes" hidden>
@@ -76,6 +76,11 @@
       </div>
 
       <div id="inspector" hidden></div>
+
+      <details id="chord-check" hidden>
+        <summary id="chord-check-summary"></summary>
+        <div id="chord-check-body"></div>
+      </details>
 
       <div id="chart-message" hidden>
         <p id="chart-message-text"></p>

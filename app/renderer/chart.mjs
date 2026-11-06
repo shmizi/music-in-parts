@@ -8,7 +8,7 @@ export function displayChord(label) {
 }
 
 export function isChordDoubtful(analysis, chord) {
-  if (chord.edited) {
+  if (chord.edited || chord.checked) {
     return false;
   }
 
@@ -107,6 +107,26 @@ export function renameChord(analysis, index, label) {
   );
 
   return { ...analysis, chords: mergeMatchingChords(chords) };
+}
+
+export function renameChords(analysis, indexes, label) {
+  const selected = new Set(indexes);
+
+  const chords = analysis.chords.map((chord, chordIndex) =>
+    selected.has(chordIndex) ? { ...chord, label, edited: true } : chord,
+  );
+
+  return { ...analysis, chords: mergeMatchingChords(chords) };
+}
+
+export function markChordsChecked(analysis, indexes) {
+  const selected = new Set(indexes);
+
+  const chords = analysis.chords.map((chord, chordIndex) =>
+    selected.has(chordIndex) ? { ...chord, checked: true } : chord,
+  );
+
+  return { ...analysis, chords };
 }
 
 function mergeMatchingChords(chords) {
