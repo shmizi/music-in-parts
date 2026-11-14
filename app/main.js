@@ -141,6 +141,10 @@ async function revertLyrics(songId) {
   }
 
   await library.revertLyrics(songId);
+
+  const song = await library.readSong(songId);
+  queue.addRefine(songId, song.title);
+
   return true;
 }
 

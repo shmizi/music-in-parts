@@ -15,6 +15,40 @@ export function isChordDoubtful(analysis, chord) {
   return !analysis.chordsReliable || chord.confidence < LOW_CONFIDENCE;
 }
 
+const CHANGE_REASONS = {
+  notes: 'the notes played',
+  repeats: 'the other copies of this section',
+  bass: 'the bass note',
+};
+
+function formatClock(seconds) {
+  const whole = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+}
+
+export function describeCrossChecks(analysis) {
+  const checks = analysis?.crossChecks;
+
+  if (!checks) {
+    return null;
+  }
+
+  const changes = (checks.chordChanges ?? []).map((change) => ({
+    start: change.start,
+    text: `${formatClock(change.start)}  ${displayChord(change.from)} became ${displayChord(change.to)}, from ${CHANGE_REASONS[change.reason] ?? 'a cross-check'}`,
+  }));
+
+  const sections = checks.sections === 'lyrics'
+    ? 'Sections are named from the lyrics, where words that come back are the chorus.'
+    : 'Sections are named from the sound alone.';
+
+  const chords = changes.length === 0
+    ? 'The notes, bass and repeated sections agreed with the chords.'
+    : `${changes.length} ${changes.length === 1 ? 'chord was' : 'chords were'} changed by the notes, bass or repeated sections.`;
+
+  return { summary: `${sections} ${chords}`, changes };
+}
+
 export function findIndexAt(items, seconds) {
   let low = 0;
   let high = items.length - 1;

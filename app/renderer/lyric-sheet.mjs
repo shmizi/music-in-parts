@@ -81,7 +81,19 @@ export function buildLyricSheet(lyrics, analysis) {
     shownChord = entries.at(-1).index;
   };
 
+  const unheard = [...(lyrics.unheard ?? [])];
+
+  const addUnheardBefore = (seconds) => {
+    while (unheard.length > 0 && unheard[0][0] < seconds) {
+      const [from, to] = unheard.shift();
+      addHeadingFor(from);
+      items.push({ type: 'unheard', start: from, end: to });
+    }
+  };
+
   lyrics.lines.forEach((line, lineIndex) => {
+    addUnheardBefore(line.start);
+
     if (line.start - cursor >= INSTRUMENTAL_GAP || (lineIndex === 0 && line.start > 0)) {
       addInstrumental(cursor, line.start);
     }
@@ -120,6 +132,8 @@ export function buildLyricSheet(lyrics, analysis) {
     items.push({ type: 'line', lineIndex, start: line.start, end: line.end, romanized: line.romanized ?? null, tokens });
     cursor = line.end;
   });
+
+  addUnheardBefore(Infinity);
 
   if (end - cursor > 0) {
     addInstrumental(cursor, end + 1);

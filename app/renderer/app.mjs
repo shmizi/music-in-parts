@@ -28,6 +28,8 @@ const STAGE_LABELS = {
   'lining-up': 'Lining up your lyrics',
   'transcribing-notes': 'Writing out the notes',
   'finding-solos': 'Finding solos',
+  'listening-again': 'Listening again to singing it missed',
+  'cross-checking': 'Cross-checking the chords, lyrics and notes',
 };
 
 const PROGRESS_STAGES = new Set(['separating', 'transcribing', 'transcribing-notes']);
@@ -598,7 +600,7 @@ function describeJob(job) {
 
   const stage = STAGE_LABELS[job.stage] ?? 'Starting';
 
-  if (job.kind === 'analyse' || job.kind === 'lyrics-paste') {
+  if (job.kind === 'analyse' || job.kind === 'lyrics-paste' || job.kind === 'refine') {
     return stage;
   }
 

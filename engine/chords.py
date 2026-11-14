@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from btc.btc_model import BTC_model
-from music_theory import NO_CHORD_INDEX, UNKNOWN_CHORD_INDEX, chord_label
+from music_theory import NO_CHORD_INDEX, UNKNOWN_CHORD_INDEX, chord_label, split_chord_index
 
 
 SAMPLE_RATE = 22050
@@ -27,6 +27,9 @@ PROBABILITY_FLOOR = 1e-4
 
 # length of each step when a song has no usable beats, in seconds
 FALLBACK_STEP = 0.5
+
+# when the listens disagree about a chord's root note, its confidence is multiplied by this
+DISAGREEMENT_FACTOR = 0.6
 
 MODEL_CONFIG = {
     "feature_size": BINS,
@@ -71,8 +74,7 @@ def compute_features(signal):
     return np.log(np.abs(spectrum) + 1e-6).T
 
 
-def frame_probabilities(signal, model_path, device):
-    model, mean, std = load_chord_model(model_path, device)
+def frame_probabilities(signal, model, mean, std, device):
     features = (compute_features(signal) - mean) / std
     frame_count = features.shape[0]
 
@@ -181,13 +183,37 @@ def merge_steps(path, step_probabilities, grid):
     return segments
 
 
-def find_chord_segments(signal, beats, duration, model_path, device):
-    probabilities = frame_probabilities(signal, model_path, device)
-    grid = build_time_grid(beats, duration)
-    steps = probabilities_per_step(probabilities, grid)
-    path = viterbi(steps)
+def mark_disputed(segments, listens, grid):
+    starts = {float(time): step for step, time in enumerate(grid)}
 
-    return merge_steps(path, steps, grid)
+    for segment in segments:
+        first = starts[segment["start"]]
+        last = starts[segment["end"]]
+        root, _ = split_chord_index(segment["index"])
+
+        # roots: the root note each listen would have picked for this chord on its own
+        roots = [split_chord_index(int(np.argmax(steps[first:last].mean(axis=0))))[0] for steps in listens]
+
+        segment["disputed"] = any(heard != root for heard in roots)
+
+    return segments
+
+
+def find_chord_segments(signals, beats, duration, model_path, device):
+    model, mean, std = load_chord_model(model_path, device)
+    grid = build_time_grid(beats, duration)
+
+    # listens: the chord probabilities for every beat, once for each version of the song listened to
+    listens = [
+        probabilities_per_step(frame_probabilities(signal, model, mean, std, device), grid)
+        for signal in signals
+    ]
+
+    steps = np.mean(listens, axis=0)
+    path = viterbi(steps)
+    segments = merge_steps(path, steps, grid)
+
+    return mark_disputed(segments, listens, grid)
 
 
 def label_segments(segments, use_flats):
@@ -196,7 +222,7 @@ def label_segments(segments, use_flats):
             "start": round(segment["start"], 3),
             "end": round(segment["end"], 3),
             "label": chord_label(segment["index"], use_flats),
-            "confidence": round(segment["confidence"], 3),
+            "confidence": round(segment["confidence"] * (DISAGREEMENT_FACTOR if segment.get("disputed") else 1.0), 3),
         }
         for segment in segments
     ]

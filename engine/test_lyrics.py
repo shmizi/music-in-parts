@@ -59,6 +59,68 @@ class LanguageTests(unittest.TestCase):
         self.assertIsNone(romanize.romanize_line("hola", "es"))
 
 
+class MissedSingingTests(unittest.TestCase):
+    def setUp(self):
+        rate = lyrics.WHISPER_RATE
+        times = np.arange(rate * 20) / rate
+        self.vocals = (0.3 * np.sin(2 * np.pi * 220 * times)).astype(np.float32)
+        self.vocals[rate * 14:] = 0.0
+        self.clear, self.decibels = lyrics.clear_singing(self.vocals)
+
+    def test_singing_without_words_is_a_gap(self):
+        words = [word("one", 0.2, 1.0), word(" two", 1.1, 2.0), word(" three", 9.0, 9.8)]
+        gaps = lyrics.find_gaps(words, [(0.0, 14.2)], self.clear)
+
+        self.assertEqual(len(gaps), 2)
+        self.assertAlmostEqual(gaps[0][0], 2.0, delta=0.3)
+        self.assertAlmostEqual(gaps[0][1], 9.0, delta=0.3)
+        self.assertAlmostEqual(gaps[1][1], 14.0, delta=0.4)
+
+    def test_silence_without_words_is_not_a_gap(self):
+        words = [word("one", 0.2, 13.9)]
+
+        self.assertEqual(lyrics.find_gaps(words, [(0.0, 20.0)], self.clear), [])
+
+    def test_long_gaps_are_cut_into_windows(self):
+        windows = lyrics.split_gap(0.0, 13.0, self.decibels)
+
+        self.assertEqual(len(windows), 2)
+        self.assertEqual(windows[0][1], windows[1][0])
+        self.assertLessEqual(windows[0][1] - windows[0][0], lyrics.GAP_WINDOW)
+
+    def test_words_both_listens_heard_keep_their_confidence(self):
+        stem = [word(" she", 1.0, 1.2), word(" shot", 1.2, 1.5), word(" me", 1.5, 1.8)]
+        mix = [word(" She", 1.1, 1.3), word(" shot", 1.3, 1.5), word(" them", 1.5, 1.8)]
+        picked = lyrics.pick_recovered([stem, mix])
+
+        self.assertEqual([item["confidence"] for item in picked], [0.9, 0.9, lyrics.UNAGREED_CONFIDENCE])
+        self.assertTrue(all(item["recovered"] for item in picked))
+
+    def test_unsure_words_are_thrown_away(self):
+        unsure = [{"text": " maybe", "start": 1.0, "end": 1.4, "confidence": 0.2}]
+
+        self.assertEqual(lyrics.pick_recovered([unsure, []]), [])
+
+    def test_a_stuck_loop_is_thrown_away(self):
+        loop = [
+            {"text": text, "start": index * 0.3, "end": index * 0.3 + 0.2, "confidence": 0.2 if index < 3 else 0.95}
+            for index, text in enumerate([" not", " a", " fan"] * 4)
+        ]
+
+        self.assertEqual(lyrics.drop_loops(loop), [])
+
+    def test_a_sung_repeat_is_kept(self):
+        hook = [word(text, index * 0.3, index * 0.3 + 0.2) for index, text in enumerate([" she", " shot", " me"] * 4)]
+
+        self.assertEqual(len(lyrics.drop_loops(hook)), 12)
+
+    def test_recovered_words_are_merged_in_time_order(self):
+        merged = lyrics.merge_words([word("one", 0.0, 3.0), word(" four", 6.0, 7.0)], [word(" two", 2.5, 3.5)])
+
+        self.assertEqual([item["text"].strip() for item in merged], ["one", "two", "four"])
+        self.assertEqual(merged[0]["end"], 2.5)
+
+
 class SingingRegionTests(unittest.TestCase):
     def test_finds_singing_between_silence(self):
         rate = lyrics.WHISPER_RATE
@@ -71,6 +133,16 @@ class SingingRegionTests(unittest.TestCase):
         self.assertEqual(len(regions), 1)
         self.assertAlmostEqual(regions[0][0], 3.0 - lyrics.REGION_PADDING, delta=0.1)
         self.assertAlmostEqual(regions[0][1], 5.0 + lyrics.REGION_PADDING, delta=0.1)
+
+    def test_singing_to_the_very_end_stops_short_of_the_end(self):
+        rate = lyrics.WHISPER_RATE
+        times = np.arange(rate * 6) / rate
+        signal = (0.3 * np.sin(2 * np.pi * 220 * times)).astype(np.float32)
+
+        regions = lyrics.singing_regions(signal)
+
+        self.assertEqual(len(regions), 1)
+        self.assertLessEqual(regions[0][1], 6.0 - lyrics.END_MARGIN)
 
     def test_silence_has_no_singing(self):
         self.assertEqual(lyrics.singing_regions(np.zeros(lyrics.WHISPER_RATE * 5, dtype=np.float32)), [])

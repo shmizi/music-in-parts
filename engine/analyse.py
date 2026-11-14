@@ -16,7 +16,7 @@ import sections as section_finding
 
 
 EVENT_STREAM = sys.stdout
-ANALYSIS_VERSION = 1
+ANALYSIS_VERSION = 2
 
 ANALYSIS_RATE = 22050
 HARMONY_STEMS = ("bass", "guitar", "piano", "other")
@@ -81,7 +81,8 @@ def main():
     tempo = beat_tracking.summarise_tempo(beats, downbeats)
 
     emit("stage", stage="finding-chords", device=device)
-    segments = chord_finding.find_chord_segments(harmony_low, beats, duration, args.chord_model, device)
+    # the chords are heard twice, without the singing and drums and with them, and the two are combined
+    segments = chord_finding.find_chord_segments([harmony_low, mix_low], beats, duration, args.chord_model, device)
 
     emit("stage", stage="finding-key", device=device)
     chroma = librosa.feature.chroma_cqt(y=harmony_low, sr=ANALYSIS_RATE, tuning=None)

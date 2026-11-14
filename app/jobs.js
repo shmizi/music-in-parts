@@ -12,6 +12,7 @@ const {
   analyseScript,
   lyricsScript,
   notesScript,
+  refineScript,
 } = require('./paths');
 const library = require('./library');
 
@@ -25,7 +26,11 @@ const PACKAGES_BY_KIND = {
   lyrics: LYRICS_PACKAGES,
   'lyrics-paste': LYRICS_PACKAGES,
   notes: [...BASE_PACKAGES, 'librosa', 'basic_pitch', 'onnxruntime', 'pretty_midi'],
+  refine: [],
 };
+
+// when the last of these finishes for a song, its results are cross-checked against each other
+const CROSS_CHECKED_KINDS = ['analyse', 'lyrics', 'lyrics-paste', 'notes'];
 
 class JobQueue {
   constructor({ onChange, onSongFinished, onAnalysisFinished, onLyricsFinished, onNotesFinished }) {
@@ -107,6 +112,16 @@ class JobQueue {
     }
   }
 
+  addRefine(songId, title) {
+    const stillWorking = this.jobs.some(
+      (job) => job.songId === songId && job.status !== 'failed' && [...CROSS_CHECKED_KINDS, 'refine'].includes(job.kind),
+    );
+
+    if (!stillWorking && fs.existsSync(path.join(library.songDir(songId), 'analysis.json'))) {
+      this.enqueue({ kind: 'refine', songId, title });
+    }
+  }
+
   addLyricsPaste(songId, title, textPath) {
     this.enqueue({ kind: 'lyrics-paste', songId, title, textPath });
   }
@@ -166,6 +181,10 @@ class JobQueue {
 
     if (job.kind === 'notes') {
       return [notesScript, '--song-dir', library.songDir(job.songId)];
+    }
+
+    if (job.kind === 'refine') {
+      return [refineScript, '--song-dir', library.songDir(job.songId)];
     }
 
     const lyricsCommand = [lyricsScript, '--song-dir', library.songDir(job.songId), '--models-dir', modelsDir];
@@ -292,12 +311,16 @@ class JobQueue {
     this.jobs = this.jobs.filter((candidate) => candidate !== job);
     this.onChange();
 
-    if (job.kind === 'analyse') {
+    if (job.kind === 'analyse' || job.kind === 'refine') {
       this.onAnalysisFinished(job.songId);
     } else if (job.kind === 'notes') {
       this.onNotesFinished(job.songId);
     } else {
       this.onLyricsFinished(job.songId);
+    }
+
+    if (CROSS_CHECKED_KINDS.includes(job.kind)) {
+      this.addRefine(job.songId, job.title);
     }
   }
 
@@ -305,6 +328,11 @@ class JobQueue {
     job.status = 'failed';
     job.error = message;
     this.onChange();
+
+    if (CROSS_CHECKED_KINDS.includes(job.kind)) {
+      this.addRefine(job.songId, job.title);
+    }
+
     this.runNext();
   }
 }

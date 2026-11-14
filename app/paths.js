@@ -11,6 +11,7 @@ const separateScript = path.join(__dirname, '..', 'engine', 'separate.py');
 const analyseScript = path.join(__dirname, '..', 'engine', 'analyse.py');
 const lyricsScript = path.join(__dirname, '..', 'engine', 'lyrics.py');
 const notesScript = path.join(__dirname, '..', 'engine', 'notes.py');
+const refineScript = path.join(__dirname, '..', 'engine', 'refine.py');
 
 module.exports = {
   dataRoot,
@@ -24,4 +25,5 @@ module.exports = {
   analyseScript,
   lyricsScript,
   notesScript,
+  refineScript,
 };

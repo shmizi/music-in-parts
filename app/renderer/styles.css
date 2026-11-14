@@ -238,6 +238,15 @@ ul {
   color: GrayText;
 }
 
+#cross-checks {
+  margin: 0 0 8px;
+}
+
+#cross-checks-list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
 #chord-warning {
   margin: 0 0 8px;
   padding: 6px 8px;

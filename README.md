@@ -35,6 +35,7 @@ The lyrics are written out from the vocal track, with a time for every word, and
 - The language is detected automatically, or you can pick it. English, Hindi, Japanese, Korean, Spanish and Filipino have been tested, and many more are available.
 - Hindi, Japanese and Korean lyrics can also be shown in English letters, so you can sing them without reading the original script.
 - Paste the real lyrics from anywhere and the app lines them up with the singing, fixing any misheard words.
+- Singing the first listen missed, often a sung chorus after a fast verse, is listened to again in short pieces, once on the vocal track and once on the full song. Words only one listen heard are greyed out, and singing that still has no words is marked on the sheet.
 
 ### Learn the chords on guitar or piano
 
@@ -56,6 +57,18 @@ Every part is written out as notes, and solos are found automatically.
 - **Piano roll:** a picture of the notes that follows the song, where clicking jumps there.
 - **Any section:** loop a section to write out just that part of the song.
 - **MIDI:** export every part as a MIDI file, ready for virtual instruments in your music program.
+
+### Let the parts check each other
+
+Once the chords, lyrics and notes are all found, the app compares them, because each one knows something the others don't.
+
+- **Lyrics name the sections:** words that come back later in the song are the chorus, new words are a verse, and stretches with no singing become the intro, outro, a solo or an instrumental.
+- **Notes check the chords:** if the notes written out from the guitar or piano clearly have the other third, D becomes Dm.
+- **The bass names slash chords:** when the bass sits on another note of the chord, D becomes D/F#.
+- **Repeated sections vote:** with three or more copies of a section, a chord that disagrees with the others, and that the model was less sure of, is changed to match.
+- **Two listens for the chords:** the chord model hears the song with and without the singing and drums. Where the two disagree, the chord gets a "?".
+
+A line under the chord display says what was changed and why, and the first results are kept so nothing is lost.
 
 ### Check the chords
 
@@ -90,6 +103,11 @@ flowchart LR
     B --> K[Whisper<br>writes out the lyrics]
     K --> L[Lyrics with chords]
     E --> L
+    B --> M[Basic Pitch<br>writes out the notes]
+    K --> N[Cross-checks]
+    M --> N
+    I --> N
+    N --> O[Section names<br>and corrected chords]
 ```
 
 Electron provides the app window and interface, and Python does the audio work on your graphics card.
@@ -104,11 +122,12 @@ Electron provides the app window and interface, and Python does the audio work o
 | **Chords** | Best on pop and rock, weaker on jazz and on music not built around chord changes |
 | **Tempo** | Can come out at half or double the feel you'd count |
 | **Key** | Can pick the wrong one of a major and minor pair that share notes |
-| **Section names** | Educated guesses from repetition and loudness |
+| **Section names** | Good when the lyrics were heard well, since repeated words mark the chorus. A chorus can start a few bars early or late, and songs with no singing fall back to guesses from the sound |
+| **Cross-checked chords** | Only clear cases are changed, and every change is listed. Tested on one real song and on generated ones, so treat changes as suggestions |
 | **Chord Check** | New and only lightly tested, so treat it as a prompt to listen |
 | **Solos and lead lines** | Clean single-note solos come out well. Fast runs, bends, distortion and solos that share the stem with other instruments cause wrong or missing notes |
 | **Full parts** | A rough draft: chords and busy parts pick up extra notes from other instruments |
-| **Lyrics** | Good on clear singing. Heavy effects, fast rap, mumbled words and songs that switch languages cause more mistakes |
+| **Lyrics** | Good on clear singing. Heavy effects, fast rap, mumbled words and songs that switch languages cause more mistakes. Greyed out words are guesses |
 | **Romanised lyrics** | Readable, but Japanese kanji can get the wrong reading, and Hindi spellings follow fixed rules rather than common usage |
 
 Unsure chords are marked with a "?". If a whole song's chords look unreliable, the app says so and lists its main notes instead.
@@ -157,6 +176,8 @@ npm run shortcut
 - [ ] Pasting chord sheets to line up with the song
 - [x] Finding solos and writing out their notes, with guitar and bass tab
 - [x] MIDI for every part, to use with virtual instruments
+- [x] Cross-checks between the lyrics, notes, bass and chords
+- [ ] An accuracy report built from your corrections
 - [ ] A written breakdown of drum patterns
 - [ ] A written breakdown of each part, with piano voicings and guitar shapes, capo suggestions and tabs
 - [ ] Transposing to your vocal range, vocal harmony suggestions and reharmonisation ideas
@@ -167,7 +188,7 @@ npm run shortcut
 |---|---|
 | `app/` | The Electron app: the window, file access and processing queue |
 | `app/renderer/` | The interface, mixer, chord chart and Chord Check |
-| `engine/` | The Python audio engine for separation and analysis |
+| `engine/` | The Python audio engine for separation, analysis, lyrics, notes and cross-checks |
 | `engine/btc/` | The BTC chord model code, under its own MIT licence |
 | `test/` | Tests for the interface logic |
 

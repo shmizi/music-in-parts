@@ -1,6 +1,7 @@
 import {
   buildChart,
   currentAndNextChord,
+  describeCrossChecks,
   displayChord,
   findIndexAt,
   isChordDoubtful,
@@ -84,6 +85,9 @@ export class AnalysisView {
     this.nowChord = document.getElementById('now-chord');
     this.nextChord = document.getElementById('next-chord');
     this.warning = document.getElementById('chord-warning');
+    this.crossChecks = document.getElementById('cross-checks');
+    this.crossChecksSummary = document.getElementById('cross-checks-summary');
+    this.crossChecksList = document.getElementById('cross-checks-list');
     this.lanes = document.getElementById('lanes');
     this.sectionLane = document.getElementById('section-lane');
     this.chordLane = document.getElementById('chord-lane');
@@ -123,6 +127,7 @@ export class AnalysisView {
     this.selection = null;
     this.info.hidden = true;
     this.warning.hidden = true;
+    this.crossChecks.hidden = true;
     this.lanes.hidden = true;
     this.check.hidden = true;
     this.inspector.hidden = true;
@@ -194,6 +199,16 @@ export class AnalysisView {
 
     this.warning.hidden = chordsReliable;
     this.warning.textContent = `The chords look unreliable for this song, so check them by ear. Its main notes are ${mainNotes.join(', ')}.`;
+
+    const checks = describeCrossChecks(this.analysis);
+
+    this.crossChecks.hidden = !checks;
+    this.crossChecksSummary.textContent = checks?.summary ?? '';
+    this.crossChecksList.replaceChildren(...(checks?.changes ?? []).map((change) => {
+      const item = document.createElement('li');
+      item.textContent = change.text;
+      return item;
+    }));
   }
 
   describeTempo(tempo) {

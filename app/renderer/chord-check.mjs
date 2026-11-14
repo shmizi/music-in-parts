@@ -50,7 +50,8 @@ export function parseChord(label) {
     return null;
   }
 
-  return { rootName: match[1], root: PITCH_CLASSES[match[1]], suffix: match[2] };
+  // the bass note of a slash chord like D/F# is left out, since it doesn't change which chord it is
+  return { rootName: match[1], root: PITCH_CLASSES[match[1]], suffix: match[2].replace(/\/.*$/, '') };
 }
 
 function noteName(pitchClass, useFlats) {

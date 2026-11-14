@@ -171,6 +171,10 @@ export class LyricsView {
         return this.createInstrumental(item);
       }
 
+      if (item.type === 'unheard') {
+        return this.createUnheard(item);
+      }
+
       return this.createLine(item);
     }));
 
@@ -200,6 +204,18 @@ export class LyricsView {
     label.className = 'note';
 
     row.append(label, this.createChordLabels(item.chords));
+    return row;
+  }
+
+  createUnheard(item) {
+    const row = document.createElement('div');
+    row.className = 'lyric-instrumental';
+
+    const label = document.createElement('span');
+    label.textContent = "Singing here that couldn't be written out";
+    label.className = 'note';
+
+    row.append(label, createButton('Listen', () => this.seekTo(item.start)));
     return row;
   }
 

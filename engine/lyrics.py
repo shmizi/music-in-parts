@@ -11,11 +11,12 @@ import librosa
 import numpy as np
 import soundfile as sf
 
+from lyric_sections import plain as normalise
 from romanize import ROMANIZED_LANGUAGES, romanize_line
 
 
 EVENT_STREAM = sys.stdout
-LYRICS_VERSION = 1
+LYRICS_VERSION = 2
 
 WHISPER_RATE = 16000
 WHISPER_MODEL = "turbo"
@@ -39,12 +40,61 @@ SHORTEST_SINGING = 0.3
 # extra time kept either side of each stretch of singing, in seconds
 REGION_PADDING = 0.25
 
+# how far before the end of the audio the last stretch of singing must stop, in seconds
+END_MARGIN = 0.05
+
 # a pause this long between words starts a new lyric line, in seconds
 LINE_BREAK_SECONDS = 0.9
 
 # longest line before it gets split at its biggest pause, in characters
 LONGEST_SPACED_LINE = 60
 LONGEST_UNSPACED_LINE = 24
+
+# singing with no words for at least this long is listened to again, in seconds
+GAP_SECONDS = 2.5
+
+# singing this close to the loudest singing, in decibels, is clearly a voice and not bleed
+CLEAR_SINGING_DB = 25.0
+
+# share of a gap that must be clear singing before it is listened to again
+GAP_SINGING_SHARE = 0.35
+
+# gaps are listened to again in windows of about this length, in seconds
+GAP_WINDOW = 8.0
+
+# a window is cut at its quietest moment within this long of its end, in seconds
+GAP_CUT_SEARCH = 2.0
+
+# recovered words the model is less sure of than this are thrown away, from 0 to 1
+RECOVERED_WORD_PROBABILITY = 0.5
+
+# two listens agree on a word when they place it within this many seconds of each other
+AGREEMENT_SECONDS = 0.7
+
+# recovered words that only one listen heard are shown as doubtful by capping their confidence
+UNAGREED_CONFIDENCE = 0.35
+
+# a phrase repeated this many times in a row, starting unsure, is the model stuck in a loop
+LOOP_REPEATS = 3
+LOOP_FIRST_PROBABILITY = 0.5
+
+# singing left without words for this long is marked on the lyric sheet, in seconds
+UNHEARD_SECONDS = 4.0
+
+# how much a comma or a full stop adds to the case for breaking a long line there
+COMMA_BONUS = 0.3
+SENTENCE_BONUS = 0.5
+
+# how much a capital letter on the next word adds, since it usually starts a new phrase
+CAPITAL_BONUS = 0.25
+
+# how much uneven halves count against a place to break a long line
+BALANCE_COST = 0.4
+
+SENTENCE_ENDINGS = ".!?\u3002\uff01\uff1f"
+PHRASE_ENDINGS = ",;:\u3001\uff0c"
+
+BACKING_STEMS = ("drums", "bass", "guitar", "piano", "other")
 
 # when Whisper can't tell Hindi from Urdu, show Hindi in Devanagari
 HINDUSTANI_CODES = ("hi", "ur")
@@ -82,6 +132,192 @@ def read_vocals(song_dir):
     return librosa.resample(mono, orig_sr=rate, target_sr=WHISPER_RATE)
 
 
+def read_backing(song_dir, length):
+    backing = np.zeros(length, dtype=np.float32)
+
+    for name in BACKING_STEMS:
+        path = song_dir / "stems" / f"{name}.wav"
+
+        if path.exists():
+            audio, rate = sf.read(path, dtype="float32", always_2d=True)
+            stem = librosa.resample(audio.mean(axis=1), orig_sr=rate, target_sr=WHISPER_RATE)
+            shared = min(length, len(stem))
+            backing[:shared] += stem[:shared]
+
+    return backing
+
+
+def clear_singing(signal, rate=WHISPER_RATE):
+    hop = int(FRAME_SECONDS * rate)
+    level = librosa.feature.rms(y=signal, frame_length=hop * 2, hop_length=hop)[0]
+    decibels = 20 * np.log10(np.maximum(level, 1e-10))
+    loud = np.percentile(decibels, 95)
+
+    # clear: one flag per frame, True where the voice is close to its loudest level in the song
+    clear = decibels > max(loud - CLEAR_SINGING_DB, SILENCE_DB)
+
+    return clear, decibels
+
+
+def find_gaps(words, regions, clear, shortest=GAP_SECONDS):
+    gaps = []
+
+    for begin, finish in regions:
+        inside = [word for word in words if begin <= (word["start"] + word["end"]) / 2 <= finish]
+        edges = [begin, *[time for word in inside for time in (word["start"], word["end"])], finish]
+
+        for start, end in zip(edges[::2], edges[1::2]):
+            first = int(start / FRAME_SECONDS)
+            last = min(len(clear), int(end / FRAME_SECONDS))
+            frames = np.flatnonzero(clear[first:last])
+
+            if len(frames) == 0:
+                continue
+
+            # trim the gap to where the clear singing starts and stops
+            trimmed_start = max(start, (first + frames[0]) * FRAME_SECONDS - REGION_PADDING)
+            trimmed_end = min(end, (first + frames[-1] + 1) * FRAME_SECONDS + REGION_PADDING)
+            share = len(frames) / max(1, frames[-1] - frames[0] + 1)
+
+            if trimmed_end - trimmed_start >= shortest and share >= GAP_SINGING_SHARE:
+                gaps.append((round(float(trimmed_start), 3), round(float(trimmed_end), 3)))
+
+    return gaps
+
+
+def split_gap(start, end, decibels):
+    windows = []
+
+    while end - start > GAP_WINDOW + GAP_CUT_SEARCH:
+        first = int((start + GAP_WINDOW - GAP_CUT_SEARCH) / FRAME_SECONDS)
+        last = int((start + GAP_WINDOW) / FRAME_SECONDS)
+        cut = (first + int(np.argmin(decibels[first:last]))) * FRAME_SECONDS
+        windows.append((start, cut))
+        start = cut
+
+    return [*windows, (start, end)]
+
+
+def drop_loops(words):
+    texts = [normalise(word["text"]) for word in words]
+
+    for length in range(1, 9):
+        for first in range(len(words) - length * LOOP_REPEATS + 1):
+            phrase = texts[first:first + length]
+            repeats = 1
+
+            while texts[first + repeats * length:first + (repeats + 1) * length] == phrase:
+                repeats += 1
+
+            started_unsure = np.mean([word["confidence"] for word in words[first:first + length]]) < LOOP_FIRST_PROBABILITY
+
+            if repeats >= LOOP_REPEATS and started_unsure and sum(len(text) for text in phrase) >= 4:
+                return words[:first] + words[first + repeats * length:]
+
+    return words
+
+
+def heard_by_both(word, other):
+    return any(
+        normalise(word["text"]) == normalise(candidate["text"])
+        and abs(word["start"] - candidate["start"]) <= AGREEMENT_SECONDS
+        for candidate in other
+    )
+
+
+def pick_recovered(listens):
+    # listens: one list of words for each way the window was listened to
+    cleaned = [
+        [
+            word
+            for word in drop_loops(words)
+            if word["confidence"] >= RECOVERED_WORD_PROBABILITY and normalise(word["text"])
+        ]
+        for words in listens
+    ]
+
+    best = max(range(len(cleaned)), key=lambda index: sum(word["confidence"] for word in cleaned[index]))
+    others = [word for index, words in enumerate(cleaned) if index != best for word in words]
+
+    return [
+        {
+            "text": word["text"],
+            "start": word["start"],
+            "end": word["end"],
+            "confidence": round(
+                word["confidence"] if heard_by_both(word, others) else min(word["confidence"], UNAGREED_CONFIDENCE),
+                3,
+            ),
+            "recovered": True,
+        }
+        for word in cleaned[best]
+    ]
+
+
+def listen_to_window(model, signal, start, end, language, device):
+    clip = signal[int(start * WHISPER_RATE):int(end * WHISPER_RATE)]
+
+    result = model.transcribe(
+        clip,
+        language=language,
+        task="transcribe",
+        word_timestamps=True,
+        condition_on_previous_text=False,
+        temperature=0.0,
+        logprob_threshold=None,
+        fp16=device == "cuda",
+        verbose=None,
+    )
+
+    return [
+        {
+            "text": word["word"],
+            "start": round(float(start + word["start"]), 3),
+            "end": round(float(min(end, start + word["end"])), 3),
+            "confidence": round(float(word.get("probability", 0.0)), 3),
+        }
+        for segment in result["segments"]
+        for word in segment.get("words", [])
+        if word["word"].strip() and start + word["start"] < end
+    ]
+
+
+def merge_words(words, recovered):
+    merged = sorted([*words, *recovered], key=lambda word: word["start"])
+
+    for before, after in zip(merged, merged[1:]):
+        before["end"] = min(before["end"], max(before["start"], after["start"]))
+
+    return merged
+
+
+def recover_missing(model, song_dir, vocals, words, regions, language, device):
+    clear, decibels = clear_singing(vocals)
+    gaps = find_gaps(words, regions, clear)
+
+    if not gaps:
+        return words
+
+    emit("stage", stage="listening-again", device=device)
+
+    # a second way to hear each gap: the singing with the band behind it, which is what the model was trained on
+    mix = vocals + read_backing(song_dir, len(vocals))
+    windows = [window for start, end in gaps for window in split_gap(start, end, decibels)]
+    recovered = []
+
+    for start, end in windows:
+        listens = [listen_to_window(model, source, start, end, language, device) for source in (vocals, mix)]
+        recovered.extend(pick_recovered(listens))
+
+    return merge_words(words, recovered)
+
+
+def unheard_stretches(words, regions, vocals):
+    clear, _ = clear_singing(vocals)
+
+    return [list(gap) for gap in find_gaps(words, regions, clear, shortest=UNHEARD_SECONDS)]
+
+
 def singing_regions(signal, rate=WHISPER_RATE):
     hop = int(FRAME_SECONDS * rate)
 
@@ -116,7 +352,8 @@ def singing_regions(signal, rate=WHISPER_RATE):
         else:
             bridged.append(region)
 
-    duration = len(signal) / rate
+    # Whisper never finishes when asked to read past the end of the audio, so regions stop just short of it
+    duration = max(0.0, len(signal) / rate - END_MARGIN)
 
     return [
         (max(0.0, begin - REGION_PADDING), min(duration, end + REGION_PADDING))
@@ -211,8 +448,24 @@ def split_long_line(line, longest):
     if len(text) <= longest or len(line) < 2:
         return [line]
 
-    gaps = [line[index + 1]["start"] - line[index]["end"] for index in range(len(line) - 1)]
-    cut = int(np.argmax(gaps)) + 1
+    lengths = np.cumsum([len(word["text"]) for word in line])
+    scores = []
+
+    for index in range(len(line) - 1):
+        ending = line[index]["text"].rstrip()[-1:]
+        pause = line[index + 1]["start"] - line[index]["end"]
+        bonus = SENTENCE_BONUS if ending and ending in SENTENCE_ENDINGS else COMMA_BONUS if ending and ending in PHRASE_ENDINGS else 0.0
+
+        following = line[index + 1]["text"].strip()
+
+        if len(following) > 1 and following[0].isupper() and not following.startswith("I'"):
+            bonus = max(bonus, CAPITAL_BONUS)
+
+        # uneven: 0 when the cut is in the middle of the line, 1 when it is at one end
+        uneven = abs(2 * lengths[index] - lengths[-1]) / lengths[-1]
+        scores.append(pause + bonus - BALANCE_COST * uneven)
+
+    cut = int(np.argmax(scores)) + 1
 
     return split_long_line(line[:cut], longest) + split_long_line(line[cut:], longest)
 
@@ -265,7 +518,7 @@ def transcribe(song_dir, models_dir, language):
     regions = singing_regions(signal)
 
     if not regions:
-        return {"version": LYRICS_VERSION, "language": None, "languageName": None, "detected": [], "lines": []}
+        return {"version": LYRICS_VERSION, "language": None, "languageName": None, "detected": [], "lines": [], "unheard": []}
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     emit("stage", stage="loading-lyrics-model", device=device)
@@ -299,8 +552,10 @@ def transcribe(song_dir, models_dir, language):
         verbose=None,
     )
 
-    emit("stage", stage="romanising" if language in ROMANIZED_LANGUAGES else "writing")
     words = collect_words(result, regions)
+    words = recover_missing(model, song_dir, signal, words, regions, language, device)
+
+    emit("stage", stage="romanising" if language in ROMANIZED_LANGUAGES else "writing")
 
     return {
         "version": LYRICS_VERSION,
@@ -309,22 +564,13 @@ def transcribe(song_dir, models_dir, language):
         "detected": detected,
         "source": "transcribed",
         "lines": build_lines(words, language),
+        "unheard": unheard_stretches(words, regions, signal),
     }
 
 
 def is_unspaced_character(character):
     name = unicodedata.name(character, "")
     return name.startswith(("CJK", "HIRAGANA", "KATAKANA", "HANGUL", "THAI"))
-
-
-def normalise(text):
-    kept = [
-        character.lower()
-        for character in unicodedata.normalize("NFKC", text)
-        if not unicodedata.category(character).startswith(("P", "S", "Z", "C"))
-    ]
-
-    return "".join(kept)
 
 
 def split_display_words(line):
