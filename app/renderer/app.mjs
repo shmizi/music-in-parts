@@ -1,6 +1,7 @@
 import { AnalysisView } from './analysis-view.mjs';
 import { GuidesView } from './guides-view.mjs';
 import { LyricsView } from './lyrics-view.mjs';
+import { NotesView } from './notes-view.mjs';
 import { Player, computePeaks } from './player.mjs';
 
 const STEM_ORDER = ['vocals', 'drums', 'bass', 'guitar', 'piano', 'other'];
@@ -25,9 +26,12 @@ const STAGE_LABELS = {
   transcribing: 'Writing out the lyrics',
   romanising: 'Romanising',
   'lining-up': 'Lining up your lyrics',
+  'transcribing-notes': 'Writing out the notes',
+  'finding-solos': 'Finding solos',
 };
 
-const PROGRESS_STAGES = new Set(['separating', 'transcribing']);
+const PROGRESS_STAGES = new Set(['separating', 'transcribing', 'transcribing-notes']);
+const PART_NAMES = { guitar: 'guitar', piano: 'piano', bass: 'bass', vocals: 'vocal melody', other: 'other' };
 const LYRICS_KINDS = new Set(['lyrics', 'lyrics-paste']);
 
 const elements = {
@@ -123,6 +127,33 @@ const lyricsView = new LyricsView({
   isBusy: () => isLyricsBusy(state.current?.id),
 });
 
+const notesView = new NotesView({
+  getPosition: () => state.position,
+  getDuration: () => state.current?.duration ?? 0,
+  getLoop: () => state.loop,
+  seekTo,
+  playRange: (start, end) => {
+    applyLoop(start, end);
+
+    if (!state.playing) {
+      togglePlaying();
+    }
+  },
+  findNotes: () => window.api.findNotes(state.current.id),
+  exportMidi: async () => {
+    try {
+      const result = await window.api.exportMidi(state.current.id);
+
+      if (result) {
+        setStatus(`Exported ${result.count} MIDI files to ${result.folder}`);
+      }
+    } catch (error) {
+      setStatus(`Could not export: ${error.message}`);
+    }
+  },
+  isBusy: () => isNotesBusy(state.current?.id),
+});
+
 const guidesView = new GuidesView({
   getPosition: () => state.position,
   getSongId: () => state.current?.id,
@@ -158,6 +189,7 @@ function showPosition() {
   analysisView.update(state.position, state.playing && state.view === 'chords');
   lyricsView.update(state.position, state.playing && state.view === 'lyrics');
   guidesView.update(state.position);
+  notesView.update(state.position);
 }
 
 function setView(view) {
@@ -170,6 +202,8 @@ function setView(view) {
   document.getElementById('chords-panel').hidden = view !== 'chords';
   document.getElementById('lyrics-panel').hidden = view !== 'lyrics';
   document.getElementById('guides-panel').hidden = view !== 'guides';
+  document.getElementById('notes-panel').hidden = view !== 'notes';
+  notesView.setVisible(view === 'notes');
   document.getElementById('chord-area').scrollTop = 0;
   showPosition();
 }
@@ -365,6 +399,7 @@ function applyLoop(firstSeconds, secondSeconds) {
   }
 
   state.loop = { start, end };
+  notesView.refreshLoop();
   showLoopRegion(start, end);
   elements.clearLoop.disabled = false;
   player.setLoop(start, end);
@@ -373,6 +408,7 @@ function applyLoop(firstSeconds, secondSeconds) {
 
 function clearLoop() {
   state.loop = null;
+  notesView.refreshLoop();
   elements.loopRegion.hidden = true;
   elements.clearLoop.disabled = true;
   player.setLoop(null, null);
@@ -408,6 +444,32 @@ function isAnalysing(songId) {
   return state.jobs.some(
     (job) => job.kind === 'analyse' && job.songId === songId && job.status !== 'failed',
   );
+}
+
+function isNotesBusy(songId) {
+  return state.jobs.some(
+    (job) => job.kind === 'notes' && job.songId === songId && job.status !== 'failed',
+  );
+}
+
+async function loadNotes() {
+  const song = state.current;
+
+  if (!song) {
+    return;
+  }
+
+  const notes = await window.api.readNotes(song.id);
+
+  if (state.current?.id !== song.id) {
+    return;
+  }
+
+  if (notes) {
+    notesView.show(notes);
+  } else {
+    notesView.showMissing();
+  }
 }
 
 function isLyricsBusy(songId) {
@@ -451,6 +513,7 @@ async function loadAnalysis() {
 
   lyricsView.setAnalysis(result?.analysis ?? null);
   guidesView.setAnalysis(result?.analysis ?? null);
+  notesView.setAnalysis(result?.analysis ?? null);
 
   if (result) {
     analysisView.show(result.analysis, result.edited, result.evidence);
@@ -462,11 +525,16 @@ async function loadAnalysis() {
 function renderJobs(jobs) {
   const wasAnalysing = state.current ? isAnalysing(state.current.id) : false;
   const wasWriting = state.current ? isLyricsBusy(state.current.id) : false;
+  const wasNoting = state.current ? isNotesBusy(state.current.id) : false;
 
   state.jobs = jobs;
 
   if (state.current && wasWriting !== isLyricsBusy(state.current.id)) {
     lyricsView.refreshBusy();
+  }
+
+  if (state.current && wasNoting !== isNotesBusy(state.current.id)) {
+    notesView.refreshBusy();
   }
   elements.jobsSection.hidden = jobs.length === 0;
 
@@ -534,6 +602,13 @@ function describeJob(job) {
     return stage;
   }
 
+  if (job.kind === 'notes') {
+    const part = job.part ? ` (${PART_NAMES[job.part] ?? job.part})` : '';
+    const percent = job.stage === 'transcribing-notes' ? `, ${Math.round(job.fraction * 100)}%` : '';
+
+    return `Notes: ${stage}${part}${percent}`;
+  }
+
   if (job.kind === 'lyrics') {
     return job.stage === 'transcribing' ? `Lyrics: ${stage}, ${Math.round(job.fraction * 100)}%` : `Lyrics: ${stage}`;
   }
@@ -590,10 +665,13 @@ async function openSong(song) {
   lyricsView.setAnalysis(null);
   lyricsView.showMissing();
   guidesView.setAnalysis(null);
+  notesView.setAnalysis(null);
+  notesView.showMissing();
   showPosition();
   renderSongs();
   loadAnalysis();
   loadLyrics();
+  loadNotes();
 
   try {
     const names = STEM_ORDER.filter((name) => song.stems.includes(name));
@@ -746,6 +824,12 @@ async function start() {
   window.api.onAnalysisFinished((songId) => {
     if (state.current?.id === songId) {
       loadAnalysis();
+    }
+  });
+
+  window.api.onNotesFinished((songId) => {
+    if (state.current?.id === songId) {
+      loadNotes();
     }
   });
 

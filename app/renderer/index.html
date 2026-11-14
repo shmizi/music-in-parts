@@ -79,6 +79,7 @@
         <button type="button" data-view="chords" aria-pressed="true">Chord Chart</button>
         <button type="button" data-view="lyrics" aria-pressed="false">Lyrics</button>
         <button type="button" data-view="guides" aria-pressed="false">Chord Guides</button>
+        <button type="button" data-view="notes" aria-pressed="false">Notes and Solos</button>
       </div>
 
       <div id="chord-area">
@@ -136,6 +137,31 @@
             </div>
             <h3 class="lyric-heading">Every chord in this song</h3>
             <div id="guides-grid"></div>
+          </div>
+        </div>
+
+        <div id="notes-panel" hidden>
+          <div id="notes-missing" hidden>
+            <p id="notes-missing-text" class="note"></p>
+            <button id="notes-find" type="button">Find Notes</button>
+          </div>
+          <div id="notes-content" hidden>
+            <h3 class="lyric-heading">Solos</h3>
+            <div id="solo-list"></div>
+            <div id="notes-toolbar">
+              <label>Part <select id="notes-part"></select></label>
+              <label>Range <select id="notes-range"></select></label>
+              <div id="notes-format">
+                <button type="button" data-format="tab" aria-pressed="true">Tab</button>
+                <button type="button" data-format="names" aria-pressed="false">Note Names</button>
+              </div>
+              <button id="notes-copy" type="button">Copy</button>
+              <button id="notes-export" type="button">Export MIDI...</button>
+              <button id="notes-again" type="button">Find Notes Again</button>
+            </div>
+            <p id="notes-note" class="note"></p>
+            <canvas id="piano-roll"></canvas>
+            <pre id="notes-text"></pre>
           </div>
         </div>
       </div>

@@ -11,6 +11,8 @@ const EVIDENCE_FILE = 'chord-evidence.json';
 const LYRICS_FILE = 'lyrics.json';
 const EDITED_LYRICS_FILE = 'lyrics-edited.json';
 const PASTED_LYRICS_FILE = 'pasted-lyrics.txt';
+const NOTES_FILE = 'notes.json';
+const MIDI_DIR = 'midi';
 
 function songDir(id) {
   if (!SONG_ID.test(id)) {
@@ -154,6 +156,22 @@ async function revertLyrics(id) {
   await fs.rm(path.join(songDir(id), EDITED_LYRICS_FILE), { force: true });
 }
 
+async function readNotes(id) {
+  return readJsonIfPresent(path.join(songDir(id), NOTES_FILE));
+}
+
+async function exportMidi(id, targetDir) {
+  const song = await readSong(id);
+  const midiDir = path.join(songDir(id), MIDI_DIR);
+  const files = (await fs.readdir(midiDir).catch(() => [])).filter((name) => name.endsWith('.mid'));
+
+  for (const name of files) {
+    await fs.copyFile(path.join(midiDir, name), path.join(targetDir, `${safeFileName(song.title)} - ${name}`));
+  }
+
+  return files.length;
+}
+
 function safeFileName(name) {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
 }
@@ -186,5 +204,7 @@ module.exports = {
   hasEditedLyrics,
   writePastedLyrics,
   revertLyrics,
+  readNotes,
+  exportMidi,
   exportStems,
 };

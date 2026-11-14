@@ -6,6 +6,9 @@ const { pythonPath, venvDir, dataRoot, modelsDir, chordModelPath } = require('..
 
 const TORCH_INDEX = 'https://download.pytorch.org/whl/cu130';
 const REQUIREMENTS = path.join(__dirname, '..', 'engine', 'requirements.txt');
+
+// installed without its dependencies, which would pull in TensorFlow; it runs on onnxruntime instead
+const BASIC_PITCH = 'basic-pitch==0.4.0';
 const CHORD_MODEL_URL = 'https://raw.githubusercontent.com/jayg996/BTC-ISMIR19/2682317be668032e6e4b269ded36adaa2ad57df0/test/btc_model_large_voca.pt';
 const CHORD_MODEL_SHA256 = '1673d23f8f9a55ae7f9e8b80a51da616debb22675b8d8b67ea6ce0ef37b0ab51';
 
@@ -54,6 +57,7 @@ if (!fs.existsSync(pythonPath)) {
 run(pythonPath, ['-m', 'pip', 'install', '--upgrade', 'pip']);
 run(pythonPath, ['-m', 'pip', 'install', 'torch', 'torchaudio', '--index-url', TORCH_INDEX]);
 run(pythonPath, ['-m', 'pip', 'install', '-r', REQUIREMENTS]);
+run(pythonPath, ['-m', 'pip', 'install', '--no-deps', BASIC_PITCH]);
 
 downloadChordModel()
   .then(() => console.log('\nEngine is ready.'))

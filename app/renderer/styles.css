@@ -372,6 +372,67 @@ ul {
   display: none;
 }
 
+#notes-panel[hidden],
+#notes-missing[hidden],
+#notes-content[hidden] {
+  display: none;
+}
+
+.solo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.solo-row span {
+  flex: 1 1 220px;
+}
+
+#notes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+#notes-format {
+  display: flex;
+  gap: 4px;
+}
+
+#notes-format button[aria-pressed="true"] {
+  background: Highlight;
+  color: HighlightText;
+}
+
+#notes-note {
+  margin: 6px 0;
+}
+
+#piano-roll {
+  --roll-note: Highlight;
+  --roll-line: color-mix(in srgb, CanvasText 20%, Canvas);
+  display: block;
+  width: 100%;
+  height: 170px;
+  border: 1px solid var(--border);
+  color: CanvasText;
+  cursor: pointer;
+}
+
+#notes-text {
+  margin: 8px 0;
+  padding: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  font: 13px Consolas, "Cascadia Mono", monospace;
+  line-height: 1.35;
+}
+
 #guides-toolbar {
   display: flex;
   flex-wrap: wrap;

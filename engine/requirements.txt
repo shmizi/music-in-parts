@@ -11,3 +11,7 @@ cutlet==0.5.2
 fugashi
 unidic-lite==1.0.8
 indic-transliteration==2.3.82
+onnxruntime
+pretty-midi
+mir-eval
+resampy==0.4.2

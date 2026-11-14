@@ -14,6 +14,7 @@ const queue = new JobQueue({
   onSongFinished: (songId) => send('song-finished', songId),
   onAnalysisFinished: (songId) => send('analysis-finished', songId),
   onLyricsFinished: (songId) => send('lyrics-finished', songId),
+  onNotesFinished: (songId) => send('notes-finished', songId),
 });
 
 function send(channel, payload) {
@@ -143,6 +144,25 @@ async function revertLyrics(songId) {
   return true;
 }
 
+async function findNotes(songId) {
+  const song = await library.readSong(songId);
+  queue.addNotes(songId, song.title);
+}
+
+async function exportMidi(songId) {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose a folder for the MIDI files',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  if (result.canceled) {
+    return null;
+  }
+
+  const count = await library.exportMidi(songId, result.filePaths[0]);
+  return { count, folder: result.filePaths[0] };
+}
+
 function registerHandlers() {
   ipcMain.handle('list-songs', () => library.listSongs());
   ipcMain.handle('list-jobs', () => queue.list());
@@ -160,6 +180,9 @@ function registerHandlers() {
   ipcMain.handle('transcribe-lyrics', (_, songId, language) => transcribeLyrics(songId, language));
   ipcMain.handle('paste-lyrics', (_, songId, text) => pasteLyrics(songId, text));
   ipcMain.handle('revert-lyrics', (_, songId) => revertLyrics(songId));
+  ipcMain.handle('read-notes', (_, songId) => library.readNotes(songId));
+  ipcMain.handle('find-notes', (_, songId) => findNotes(songId));
+  ipcMain.handle('export-midi', (_, songId) => exportMidi(songId));
 }
 
 function buildMenu() {

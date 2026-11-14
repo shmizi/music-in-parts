@@ -11,6 +11,7 @@ const {
   separateScript,
   analyseScript,
   lyricsScript,
+  notesScript,
 } = require('./paths');
 const library = require('./library');
 
@@ -23,26 +24,29 @@ const PACKAGES_BY_KIND = {
   analyse: [...BASE_PACKAGES, 'librosa', 'beat_this', 'sklearn'],
   lyrics: LYRICS_PACKAGES,
   'lyrics-paste': LYRICS_PACKAGES,
+  notes: [...BASE_PACKAGES, 'librosa', 'basic_pitch', 'onnxruntime', 'pretty_midi'],
 };
 
 class JobQueue {
-  constructor({ onChange, onSongFinished, onAnalysisFinished, onLyricsFinished }) {
+  constructor({ onChange, onSongFinished, onAnalysisFinished, onLyricsFinished, onNotesFinished }) {
     this.onChange = onChange;
     this.onSongFinished = onSongFinished;
     this.onAnalysisFinished = onAnalysisFinished;
     this.onLyricsFinished = onLyricsFinished;
+    this.onNotesFinished = onNotesFinished;
     this.jobs = [];
     this.child = null;
   }
 
   list() {
-    return this.jobs.map(({ id, kind, songId, title, status, stage, fraction, device, error }) => ({
+    return this.jobs.map(({ id, kind, songId, title, status, stage, part, fraction, device, error }) => ({
       id,
       kind,
       songId,
       title,
       status,
       stage,
+      part,
       fraction,
       device,
       error,
@@ -90,6 +94,16 @@ class JobQueue {
 
     if (!alreadyWaiting) {
       this.enqueue({ kind: 'lyrics', songId, title, language });
+    }
+  }
+
+  addNotes(songId, title) {
+    const alreadyWaiting = this.jobs.some(
+      (job) => job.kind === 'notes' && job.songId === songId && job.status === 'queued',
+    );
+
+    if (!alreadyWaiting) {
+      this.enqueue({ kind: 'notes', songId, title });
     }
   }
 
@@ -150,6 +164,10 @@ class JobQueue {
       return [analyseScript, '--song-dir', library.songDir(job.songId), '--chord-model', chordModelPath];
     }
 
+    if (job.kind === 'notes') {
+      return [notesScript, '--song-dir', library.songDir(job.songId)];
+    }
+
     const lyricsCommand = [lyricsScript, '--song-dir', library.songDir(job.songId), '--models-dir', modelsDir];
 
     if (job.kind === 'lyrics-paste') {
@@ -193,6 +211,7 @@ class JobQueue {
 
       if (event?.type === 'stage') {
         job.stage = event.stage;
+        job.part = event.part ?? null;
         job.fraction = 0;
         job.device = event.device ?? job.device;
         this.onChange();
@@ -252,6 +271,7 @@ class JobQueue {
       this.onSongFinished(job.songId);
       this.enqueue({ kind: 'analyse', songId: job.songId, title: job.title });
       this.enqueue({ kind: 'lyrics', songId: job.songId, title: job.title, language: 'auto' });
+      this.enqueue({ kind: 'notes', songId: job.songId, title: job.title });
     } catch (error) {
       await library.deleteTemp(job.songId);
       this.fail(job, error.message);
@@ -274,6 +294,8 @@ class JobQueue {
 
     if (job.kind === 'analyse') {
       this.onAnalysisFinished(job.songId);
+    } else if (job.kind === 'notes') {
+      this.onNotesFinished(job.songId);
     } else {
       this.onLyricsFinished(job.songId);
     }

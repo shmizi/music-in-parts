@@ -46,6 +46,17 @@ The Chord Guides tab shows how to play every chord in the song, with large diagr
 
 Your choice of instrument, capo and shapes is remembered for each song.
 
+### Find the solos and write out the notes
+
+Every part is written out as notes, and solos are found automatically.
+
+- **Solos:** stretches where nobody sings and one instrument takes the lead, like a guitar or piano solo, are listed with buttons to show their notes or loop them.
+- **Guitar and bass tab:** notes are placed on the neck so the hand moves as little as possible, with one column per sixteenth note and bar lines from the song's beat.
+- **Note names:** any part can be listed bar by bar, like `C4 E4 (G4 B4)`.
+- **Piano roll:** a picture of the notes that follows the song, where clicking jumps there.
+- **Any section:** loop a section to write out just that part of the song.
+- **MIDI:** export every part as a MIDI file, ready for virtual instruments in your music program.
+
 ### Check the chords
 
 Chord names can be close calls, because D, Dm and D7 can sound nearly the same when the deciding note is faint or missing. Chord Check compares every copy of a chord in the song and points out where the names don't match what it hears.
@@ -95,6 +106,8 @@ Electron provides the app window and interface, and Python does the audio work o
 | **Key** | Can pick the wrong one of a major and minor pair that share notes |
 | **Section names** | Educated guesses from repetition and loudness |
 | **Chord Check** | New and only lightly tested, so treat it as a prompt to listen |
+| **Solos and lead lines** | Clean single-note solos come out well. Fast runs, bends, distortion and solos that share the stem with other instruments cause wrong or missing notes |
+| **Full parts** | A rough draft: chords and busy parts pick up extra notes from other instruments |
 | **Lyrics** | Good on clear singing. Heavy effects, fast rap, mumbled words and songs that switch languages cause more mistakes |
 | **Romanised lyrics** | Readable, but Japanese kanji can get the wrong reading, and Hindi spellings follow fixed rules rather than common usage |
 
@@ -142,8 +155,9 @@ npm run shortcut
 - [x] Lyrics with chords above the words, in many languages
 - [x] Guitar and piano chord diagrams, with capo suggestions
 - [ ] Pasting chord sheets to line up with the song
-- [ ] Finding solos and writing out their notes
-- [ ] MIDI for every part, to use with virtual instruments
+- [x] Finding solos and writing out their notes, with guitar and bass tab
+- [x] MIDI for every part, to use with virtual instruments
+- [ ] A written breakdown of drum patterns
 - [ ] A written breakdown of each part, with piano voicings and guitar shapes, capo suggestions and tabs
 - [ ] Transposing to your vocal range, vocal harmony suggestions and reharmonisation ideas
 
@@ -174,6 +188,7 @@ npm run test:engine
 - [BTC](https://github.com/jayg996/BTC-ISMIR19) for chord recognition
 - [librosa](https://librosa.org) for audio analysis
 - [Whisper](https://github.com/openai/whisper) for lyrics
+- [Basic Pitch](https://github.com/spotify/basic-pitch) for writing out notes
 - [cutlet](https://github.com/polm/cutlet) for Japanese romaji, and [indic-transliteration](https://github.com/indic-transliteration/indic_transliteration_py) for Hindi
 
 ## A note on copyright
