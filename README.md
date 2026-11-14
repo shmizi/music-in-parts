@@ -36,6 +36,16 @@ The lyrics are written out from the vocal track, with a time for every word, and
 - Hindi, Japanese and Korean lyrics can also be shown in English letters, so you can sing them without reading the original script.
 - Paste the real lyrics from anywhere and the app lines them up with the singing, fixing any misheard words.
 
+### Learn the chords on guitar or piano
+
+The Chord Guides tab shows how to play every chord in the song, with large diagrams for the chord playing now and the one coming next.
+
+- **Guitar:** finger diagrams with open, barre and movable shapes, and several shapes to choose from for each chord. Slash chords like D/F# put the right note in the bass.
+- **Capo:** the app suggests a capo when it turns barre chords into easy open shapes, and shows which shape to play for any capo you pick.
+- **Piano:** keyboard diagrams with the left hand bass note and right hand chord, plus smooth voicings that keep your right hand close to where it already is.
+
+Your choice of instrument, capo and shapes is remembered for each song.
+
 ### Check the chords
 
 Chord names can be close calls, because D, Dm and D7 can sound nearly the same when the deciding note is faint or missing. Chord Check compares every copy of a chord in the song and points out where the names don't match what it hears.
@@ -130,7 +140,7 @@ npm run shortcut
 - [x] Key, tempo, chords and sections, with an editable chord chart
 - [x] Chord Check
 - [x] Lyrics with chords above the words, in many languages
-- [ ] Guitar and piano chord diagrams
+- [x] Guitar and piano chord diagrams, with capo suggestions
 - [ ] Pasting chord sheets to line up with the song
 - [ ] Finding solos and writing out their notes
 - [ ] MIDI for every part, to use with virtual instruments

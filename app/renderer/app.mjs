@@ -1,4 +1,5 @@
 import { AnalysisView } from './analysis-view.mjs';
+import { GuidesView } from './guides-view.mjs';
 import { LyricsView } from './lyrics-view.mjs';
 import { Player, computePeaks } from './player.mjs';
 
@@ -92,6 +93,7 @@ const analysisView = new AnalysisView({
   isAnalysing: () => isAnalysing(state.current?.id),
   onEdited: async (analysis) => {
     lyricsView.setAnalysis(analysis);
+    guidesView.refresh(analysis);
 
     try {
       await window.api.saveAnalysis(state.current.id, analysis);
@@ -119,6 +121,11 @@ const lyricsView = new LyricsView({
     }
   },
   isBusy: () => isLyricsBusy(state.current?.id),
+});
+
+const guidesView = new GuidesView({
+  getPosition: () => state.position,
+  getSongId: () => state.current?.id,
 });
 
 function formatTime(seconds) {
@@ -150,6 +157,7 @@ function showPosition() {
 
   analysisView.update(state.position, state.playing && state.view === 'chords');
   lyricsView.update(state.position, state.playing && state.view === 'lyrics');
+  guidesView.update(state.position);
 }
 
 function setView(view) {
@@ -161,6 +169,7 @@ function setView(view) {
 
   document.getElementById('chords-panel').hidden = view !== 'chords';
   document.getElementById('lyrics-panel').hidden = view !== 'lyrics';
+  document.getElementById('guides-panel').hidden = view !== 'guides';
   document.getElementById('chord-area').scrollTop = 0;
   showPosition();
 }
@@ -441,6 +450,7 @@ async function loadAnalysis() {
   }
 
   lyricsView.setAnalysis(result?.analysis ?? null);
+  guidesView.setAnalysis(result?.analysis ?? null);
 
   if (result) {
     analysisView.show(result.analysis, result.edited, result.evidence);
@@ -579,6 +589,7 @@ async function openSong(song) {
   analysisView.showMissing({ analysing: isAnalysing(song.id) });
   lyricsView.setAnalysis(null);
   lyricsView.showMissing();
+  guidesView.setAnalysis(null);
   showPosition();
   renderSongs();
   loadAnalysis();

@@ -78,6 +78,7 @@
       <div id="view-tabs">
         <button type="button" data-view="chords" aria-pressed="true">Chord Chart</button>
         <button type="button" data-view="lyrics" aria-pressed="false">Lyrics</button>
+        <button type="button" data-view="guides" aria-pressed="false">Chord Guides</button>
       </div>
 
       <div id="chord-area">
@@ -115,6 +116,27 @@
             </div>
           </div>
           <div id="lyric-sheet"></div>
+        </div>
+
+        <div id="guides-panel" hidden>
+          <div id="guides-toolbar">
+            <div id="guides-instrument">
+              <button type="button" data-instrument="guitar" aria-pressed="true">Guitar</button>
+              <button type="button" data-instrument="piano" aria-pressed="false">Piano</button>
+            </div>
+            <label id="guides-capo-label">Capo <select id="guides-capo"></select></label>
+            <label id="guides-smooth-label" title="Picks the inversion of each chord closest to the one before, so your right hand barely moves" hidden><input id="guides-smooth" type="checkbox" checked> Smooth voicings</label>
+          </div>
+          <p id="guides-capo-note" class="note"></p>
+          <p id="guides-message" class="note"></p>
+          <div id="guides-content">
+            <div id="guides-now">
+              <div id="guide-now"></div>
+              <div id="guide-next"></div>
+            </div>
+            <h3 class="lyric-heading">Every chord in this song</h3>
+            <div id="guides-grid"></div>
+          </div>
         </div>
       </div>
     </div>
