@@ -9,6 +9,7 @@ const chordModelPath = path.join(modelsDir, 'btc_model_large_voca.pt');
 const libraryDir = path.join(dataRoot, 'library');
 const separateScript = path.join(__dirname, '..', 'engine', 'separate.py');
 const analyseScript = path.join(__dirname, '..', 'engine', 'analyse.py');
+const lyricsScript = path.join(__dirname, '..', 'engine', 'lyrics.py');
 
 module.exports = {
   dataRoot,
@@ -20,4 +21,5 @@ module.exports = {
   libraryDir,
   separateScript,
   analyseScript,
+  lyricsScript,
 };

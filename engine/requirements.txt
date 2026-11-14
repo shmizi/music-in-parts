@@ -6,3 +6,8 @@ beat-this==1.1.0
 librosa
 scikit-learn
 scipy
+openai-whisper==20250625
+cutlet==0.5.2
+fugashi
+unidic-lite==1.0.8
+indic-transliteration==2.3.82

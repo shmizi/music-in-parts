@@ -26,6 +26,16 @@ Any audio or video file becomes six tracks: vocals, drums, bass, guitar, piano a
 - Read a chord chart of every bar, grouped by section, which stays with the music.
 - Click a section to jump to it or loop it.
 
+### Sing along with lyrics and chords
+
+The lyrics are written out from the vocal track, with a time for every word, and each chord appears above the word where it changes.
+
+- The word being sung lights up as the song plays, and clicking any word jumps there.
+- Instrumental stretches show their chords on a row of their own.
+- The language is detected automatically, or you can pick it. English, Hindi, Japanese, Korean, Spanish and Filipino have been tested, and many more are available.
+- Hindi, Japanese and Korean lyrics can also be shown in English letters, so you can sing them without reading the original script.
+- Paste the real lyrics from anywhere and the app lines them up with the singing, fixing any misheard words.
+
 ### Check the chords
 
 Chord names can be close calls, because D, Dm and D7 can sound nearly the same when the deciding note is faint or missing. Chord Check compares every copy of a chord in the song and points out where the names don't match what it hears.
@@ -56,6 +66,9 @@ flowchart LR
     G --> I
     H --> J[Chord Check]
     I --> J
+    B --> K[Whisper<br>writes out the lyrics]
+    K --> L[Lyrics with chords]
+    E --> L
 ```
 
 Electron provides the app window and interface, and Python does the audio work on your graphics card.
@@ -72,6 +85,8 @@ Electron provides the app window and interface, and Python does the audio work o
 | **Key** | Can pick the wrong one of a major and minor pair that share notes |
 | **Section names** | Educated guesses from repetition and loudness |
 | **Chord Check** | New and only lightly tested, so treat it as a prompt to listen |
+| **Lyrics** | Good on clear singing. Heavy effects, fast rap, mumbled words and songs that switch languages cause more mistakes |
+| **Romanised lyrics** | Readable, but Japanese kanji can get the wrong reading, and Hindi spellings follow fixed rules rather than common usage |
 
 Unsure chords are marked with a "?". If a whole song's chords look unreliable, the app says so and lists its main notes instead.
 
@@ -95,7 +110,7 @@ npm install
 npm run setup
 ```
 
-Setup downloads several GB of audio libraries into `%LOCALAPPDATA%\MusicInParts`, which keeps them out of the project folder. It's finished when it prints `Engine is ready.` Run it again whenever `engine/requirements.txt` changes.
+Setup downloads several GB of audio libraries into `%LOCALAPPDATA%\MusicInParts`, which keeps them out of the project folder. It's finished when it prints `Engine is ready.` Run it again whenever `engine/requirements.txt` changes. The first song you add also downloads the lyrics model, about 1.5 GB.
 
 Start the app:
 
@@ -114,6 +129,10 @@ npm run shortcut
 - [x] Stem separation, mixer, looping and slowdown
 - [x] Key, tempo, chords and sections, with an editable chord chart
 - [x] Chord Check
+- [x] Lyrics with chords above the words, in many languages
+- [ ] Guitar and piano chord diagrams
+- [ ] Pasting chord sheets to line up with the song
+- [ ] Finding solos and writing out their notes
 - [ ] MIDI for every part, to use with virtual instruments
 - [ ] A written breakdown of each part, with piano voicings and guitar shapes, capo suggestions and tabs
 - [ ] Transposing to your vocal range, vocal harmony suggestions and reharmonisation ideas
@@ -144,7 +163,9 @@ npm run test:engine
 - [Beat This!](https://github.com/CPJKU/beat_this) for beats and bars
 - [BTC](https://github.com/jayg996/BTC-ISMIR19) for chord recognition
 - [librosa](https://librosa.org) for audio analysis
+- [Whisper](https://github.com/openai/whisper) for lyrics
+- [cutlet](https://github.com/polm/cutlet) for Japanese romaji, and [indic-transliteration](https://github.com/indic-transliteration/indic_transliteration_py) for Hindi
 
 ## A note on copyright
 
-This is a tool for learning songs. The stems it creates are still the original recordings, so replay the parts yourself if you upload a cover, and expect that covers can still be claimed by the rights holder.
+This is a tool for learning songs. Lyrics stay on your computer, and the stems it creates are still the original recordings, so replay the parts yourself if you upload a cover, and expect that covers can still be claimed by the rights holder.

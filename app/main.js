@@ -13,6 +13,7 @@ const queue = new JobQueue({
   onChange: () => send('jobs-changed', queue.list()),
   onSongFinished: (songId) => send('song-finished', songId),
   onAnalysisFinished: (songId) => send('analysis-finished', songId),
+  onLyricsFinished: (songId) => send('lyrics-finished', songId),
 });
 
 function send(channel, payload) {
@@ -94,6 +95,54 @@ async function revertAnalysis(songId) {
   return true;
 }
 
+async function transcribeLyrics(songId, language) {
+  const song = await library.readSong(songId);
+
+  if (await library.hasEditedLyrics(songId)) {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      buttons: ['Transcribe Again', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      message: 'Replace your edited lyrics?',
+      detail: 'Transcribing again starts over, and the lyrics you pasted or corrected for this song will be lost.',
+    });
+
+    if (response !== 0) {
+      return false;
+    }
+
+    await library.revertLyrics(songId);
+  }
+
+  queue.addLyrics(songId, song.title, language);
+  return true;
+}
+
+async function pasteLyrics(songId, text) {
+  const song = await library.readSong(songId);
+  const textPath = await library.writePastedLyrics(songId, text);
+  queue.addLyricsPaste(songId, song.title, textPath);
+}
+
+async function revertLyrics(songId) {
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    buttons: ['Discard My Lyrics', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    message: 'Go back to the automatic transcription?',
+    detail: 'The lyrics you pasted or corrected for this song will be lost.',
+  });
+
+  if (response !== 0) {
+    return false;
+  }
+
+  await library.revertLyrics(songId);
+  return true;
+}
+
 function registerHandlers() {
   ipcMain.handle('list-songs', () => library.listSongs());
   ipcMain.handle('list-jobs', () => queue.list());
@@ -107,6 +156,10 @@ function registerHandlers() {
   ipcMain.handle('read-analysis', (_, songId) => library.readAnalysis(songId));
   ipcMain.handle('save-analysis', (_, songId, analysis) => library.saveEditedAnalysis(songId, analysis));
   ipcMain.handle('revert-analysis', (_, songId) => revertAnalysis(songId));
+  ipcMain.handle('read-lyrics', (_, songId) => library.readLyrics(songId));
+  ipcMain.handle('transcribe-lyrics', (_, songId, language) => transcribeLyrics(songId, language));
+  ipcMain.handle('paste-lyrics', (_, songId, text) => pasteLyrics(songId, text));
+  ipcMain.handle('revert-lyrics', (_, songId) => revertLyrics(songId));
 }
 
 function buildMenu() {

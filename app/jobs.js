@@ -10,17 +10,27 @@ const {
   chordModelPath,
   separateScript,
   analyseScript,
+  lyricsScript,
 } = require('./paths');
 const library = require('./library');
 
 const STDERR_LINES_KEPT = 20;
-const ENGINE_PACKAGES = ['torch', 'demucs', 'imageio_ffmpeg', 'soundfile.py', 'librosa', 'beat_this', 'sklearn'];
+const BASE_PACKAGES = ['torch', 'demucs', 'imageio_ffmpeg', 'soundfile.py'];
+const LYRICS_PACKAGES = [...BASE_PACKAGES, 'librosa', 'whisper', 'cutlet', 'fugashi', 'unidic_lite', 'indic_transliteration'];
+
+const PACKAGES_BY_KIND = {
+  separate: BASE_PACKAGES,
+  analyse: [...BASE_PACKAGES, 'librosa', 'beat_this', 'sklearn'],
+  lyrics: LYRICS_PACKAGES,
+  'lyrics-paste': LYRICS_PACKAGES,
+};
 
 class JobQueue {
-  constructor({ onChange, onSongFinished, onAnalysisFinished }) {
+  constructor({ onChange, onSongFinished, onAnalysisFinished, onLyricsFinished }) {
     this.onChange = onChange;
     this.onSongFinished = onSongFinished;
     this.onAnalysisFinished = onAnalysisFinished;
+    this.onLyricsFinished = onLyricsFinished;
     this.jobs = [];
     this.child = null;
   }
@@ -73,6 +83,20 @@ class JobQueue {
     }
   }
 
+  addLyrics(songId, title, language) {
+    const alreadyWaiting = this.jobs.some(
+      (job) => job.kind === 'lyrics' && job.songId === songId && job.status === 'queued',
+    );
+
+    if (!alreadyWaiting) {
+      this.enqueue({ kind: 'lyrics', songId, title, language });
+    }
+  }
+
+  addLyricsPaste(songId, title, textPath) {
+    this.enqueue({ kind: 'lyrics-paste', songId, title, textPath });
+  }
+
   cancel(id) {
     const job = this.jobs.find((candidate) => candidate.id === id);
 
@@ -122,14 +146,24 @@ class JobQueue {
       return [separateScript, '--input', job.inputPath, '--output', library.tempDir(job.songId)];
     }
 
-    return [analyseScript, '--song-dir', library.songDir(job.songId), '--chord-model', chordModelPath];
+    if (job.kind === 'analyse') {
+      return [analyseScript, '--song-dir', library.songDir(job.songId), '--chord-model', chordModelPath];
+    }
+
+    const lyricsCommand = [lyricsScript, '--song-dir', library.songDir(job.songId), '--models-dir', modelsDir];
+
+    if (job.kind === 'lyrics-paste') {
+      return [...lyricsCommand, '--paste', job.textPath];
+    }
+
+    return [...lyricsCommand, '--language', job.language ?? 'auto'];
   }
 
   start(job) {
     job.status = 'running';
     this.onChange();
 
-    if (!isEngineReady()) {
+    if (!isEngineReady(job.kind)) {
       this.fail(job, 'The audio engine is not fully installed. Run "npm run setup" in the project folder, wait for "Engine is ready", then try again.');
       return;
     }
@@ -182,7 +216,7 @@ class JobQueue {
       if (job.kind === 'separate') {
         await this.finishSeparation(job, result, engineError ?? stderrLines.at(-1));
       } else {
-        this.finishAnalysis(job, result, engineError ?? stderrLines.at(-1));
+        this.finishFollowUp(job, result, engineError ?? stderrLines.at(-1));
       }
 
       this.runNext();
@@ -217,13 +251,14 @@ class JobQueue {
       this.onChange();
       this.onSongFinished(job.songId);
       this.enqueue({ kind: 'analyse', songId: job.songId, title: job.title });
+      this.enqueue({ kind: 'lyrics', songId: job.songId, title: job.title, language: 'auto' });
     } catch (error) {
       await library.deleteTemp(job.songId);
       this.fail(job, error.message);
     }
   }
 
-  finishAnalysis(job, result, errorMessage) {
+  finishFollowUp(job, result, errorMessage) {
     if (!this.jobs.includes(job) || job.cancelled) {
       this.dismiss(job.id);
       return;
@@ -236,7 +271,12 @@ class JobQueue {
 
     this.jobs = this.jobs.filter((candidate) => candidate !== job);
     this.onChange();
-    this.onAnalysisFinished(job.songId);
+
+    if (job.kind === 'analyse') {
+      this.onAnalysisFinished(job.songId);
+    } else {
+      this.onLyricsFinished(job.songId);
+    }
   }
 
   fail(job, message) {
@@ -247,11 +287,11 @@ class JobQueue {
   }
 }
 
-function isEngineReady() {
+function isEngineReady(kind) {
   const requiredPaths = [
     pythonPath,
-    chordModelPath,
-    ...ENGINE_PACKAGES.map((name) => path.join(sitePackagesDir, name)),
+    ...(kind === 'analyse' ? [chordModelPath] : []),
+    ...(PACKAGES_BY_KIND[kind] ?? LYRICS_PACKAGES).map((name) => path.join(sitePackagesDir, name)),
   ];
 
   return requiredPaths.every((requiredPath) => fs.existsSync(requiredPath));

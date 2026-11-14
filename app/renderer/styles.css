@@ -296,6 +296,17 @@ ul {
   color: HighlightText;
 }
 
+#view-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+#view-tabs button[aria-pressed="true"] {
+  background: Highlight;
+  color: HighlightText;
+}
+
 #chord-area {
   position: relative;
   flex: 1;
@@ -352,6 +363,119 @@ ul {
 .lane-block.flagged {
   text-decoration: underline wavy;
   text-underline-offset: 2px;
+}
+
+#lyrics-panel[hidden],
+#chords-panel[hidden] {
+  display: none;
+}
+
+#lyrics-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+#lyrics-message {
+  margin: 6px 0;
+}
+
+#lyrics-editor textarea {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  font: 14px system-ui, sans-serif;
+}
+
+.editor-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+#lyric-sheet {
+  font-family: system-ui, "Segoe UI", "Nirmala UI", "Yu Gothic UI", "Malgun Gothic", sans-serif;
+}
+
+.lyric-heading {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lyric-line {
+  margin: 4px 0 8px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.lyric-line.current {
+  background: color-mix(in srgb, Highlight 18%, Canvas);
+}
+
+.lyric-words {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.lyric-token {
+  display: inline-flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.lyric-token.spaced {
+  margin-left: 0.35em;
+}
+
+.lyric-chords {
+  display: flex;
+  gap: 4px;
+  min-height: 18px;
+}
+
+.lyric-chords button {
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: 600 13px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.lyric-chords button:hover {
+  text-decoration: underline;
+}
+
+.lyric-word {
+  font-size: 17px;
+  white-space: pre;
+}
+
+.lyric-token.doubtful .lyric-word {
+  color: GrayText;
+}
+
+.lyric-token.current .lyric-word {
+  border-radius: 2px;
+  background: Highlight;
+  color: HighlightText;
+}
+
+.lyric-romanized {
+  font-size: 13px;
+  color: GrayText;
+}
+
+.lyric-instrumental {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+  padding: 0 4px;
 }
 
 #chart-message {

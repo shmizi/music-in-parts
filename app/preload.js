@@ -13,8 +13,13 @@ contextBridge.exposeInMainWorld('api', {
   readAnalysis: (songId) => ipcRenderer.invoke('read-analysis', songId),
   saveAnalysis: (songId, analysis) => ipcRenderer.invoke('save-analysis', songId, analysis),
   revertAnalysis: (songId) => ipcRenderer.invoke('revert-analysis', songId),
+  readLyrics: (songId) => ipcRenderer.invoke('read-lyrics', songId),
+  transcribeLyrics: (songId, language) => ipcRenderer.invoke('transcribe-lyrics', songId, language),
+  pasteLyrics: (songId, text) => ipcRenderer.invoke('paste-lyrics', songId, text),
+  revertLyrics: (songId) => ipcRenderer.invoke('revert-lyrics', songId),
   pathForFile: (file) => webUtils.getPathForFile(file),
   onJobsChanged: (callback) => ipcRenderer.on('jobs-changed', (_, jobs) => callback(jobs)),
   onSongFinished: (callback) => ipcRenderer.on('song-finished', (_, songId) => callback(songId)),
   onAnalysisFinished: (callback) => ipcRenderer.on('analysis-finished', (_, songId) => callback(songId)),
+  onLyricsFinished: (callback) => ipcRenderer.on('lyrics-finished', (_, songId) => callback(songId)),
 });

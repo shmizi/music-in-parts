@@ -1,4 +1,5 @@
 import { AnalysisView } from './analysis-view.mjs';
+import { LyricsView } from './lyrics-view.mjs';
 import { Player, computePeaks } from './player.mjs';
 
 const STEM_ORDER = ['vocals', 'drums', 'bass', 'guitar', 'piano', 'other'];
@@ -17,7 +18,16 @@ const STAGE_LABELS = {
   'finding-key': 'Finding the key',
   'finding-sections': 'Finding the sections',
   'comparing-chords': 'Comparing the chords',
+  'finding-singing': 'Finding the singing',
+  'loading-lyrics-model': 'Loading the lyrics model (the first time downloads about 1.5 GB)',
+  'detecting-language': 'Working out the language',
+  transcribing: 'Writing out the lyrics',
+  romanising: 'Romanising',
+  'lining-up': 'Lining up your lyrics',
 };
+
+const PROGRESS_STAGES = new Set(['separating', 'transcribing']);
+const LYRICS_KINDS = new Set(['lyrics', 'lyrics-paste']);
 
 const elements = {
   addSongs: document.getElementById('add-songs'),
@@ -54,6 +64,7 @@ const state = {
   loop: null,
   loadToken: 0,
   jobs: [],
+  view: 'chords',
 };
 
 const player = new Player({
@@ -80,12 +91,34 @@ const analysisView = new AnalysisView({
   analyseAgain: () => window.api.analyseSong(state.current.id),
   isAnalysing: () => isAnalysing(state.current?.id),
   onEdited: async (analysis) => {
+    lyricsView.setAnalysis(analysis);
+
     try {
       await window.api.saveAnalysis(state.current.id, analysis);
     } catch (error) {
       setStatus(`Could not save your change: ${error.message}`);
     }
   },
+});
+
+const lyricsView = new LyricsView({
+  getPosition: () => state.position,
+  seekTo,
+  selectChord: (index) => {
+    const chord = analysisView.analysis?.chords[index];
+
+    if (chord) {
+      analysisView.select('chord', index, chord.start);
+    }
+  },
+  transcribe: (language) => window.api.transcribeLyrics(state.current.id, language),
+  paste: (text) => window.api.pasteLyrics(state.current.id, text),
+  revert: async () => {
+    if (await window.api.revertLyrics(state.current.id)) {
+      await loadLyrics();
+    }
+  },
+  isBusy: () => isLyricsBusy(state.current?.id),
 });
 
 function formatTime(seconds) {
@@ -115,7 +148,21 @@ function showPosition() {
     elements.seek.value = state.position;
   }
 
-  analysisView.update(state.position, state.playing);
+  analysisView.update(state.position, state.playing && state.view === 'chords');
+  lyricsView.update(state.position, state.playing && state.view === 'lyrics');
+}
+
+function setView(view) {
+  state.view = view;
+
+  for (const button of document.querySelectorAll('#view-tabs button')) {
+    button.setAttribute('aria-pressed', String(button.dataset.view === view));
+  }
+
+  document.getElementById('chords-panel').hidden = view !== 'chords';
+  document.getElementById('lyrics-panel').hidden = view !== 'lyrics';
+  document.getElementById('chord-area').scrollTop = 0;
+  showPosition();
 }
 
 function setPlaying(playing) {
@@ -354,6 +401,32 @@ function isAnalysing(songId) {
   );
 }
 
+function isLyricsBusy(songId) {
+  return state.jobs.some(
+    (job) => LYRICS_KINDS.has(job.kind) && job.songId === songId && job.status !== 'failed',
+  );
+}
+
+async function loadLyrics() {
+  const song = state.current;
+
+  if (!song) {
+    return;
+  }
+
+  const result = await window.api.readLyrics(song.id);
+
+  if (state.current?.id !== song.id) {
+    return;
+  }
+
+  if (result) {
+    lyricsView.show(result.lyrics, result.edited);
+  } else {
+    lyricsView.showMissing();
+  }
+}
+
 async function loadAnalysis() {
   const song = state.current;
 
@@ -367,6 +440,8 @@ async function loadAnalysis() {
     return;
   }
 
+  lyricsView.setAnalysis(result?.analysis ?? null);
+
   if (result) {
     analysisView.show(result.analysis, result.edited, result.evidence);
   } else {
@@ -376,8 +451,13 @@ async function loadAnalysis() {
 
 function renderJobs(jobs) {
   const wasAnalysing = state.current ? isAnalysing(state.current.id) : false;
+  const wasWriting = state.current ? isLyricsBusy(state.current.id) : false;
 
   state.jobs = jobs;
+
+  if (state.current && wasWriting !== isLyricsBusy(state.current.id)) {
+    lyricsView.refreshBusy();
+  }
   elements.jobsSection.hidden = jobs.length === 0;
 
   if (state.current && wasAnalysing !== isAnalysing(state.current.id)) {
@@ -414,7 +494,7 @@ function renderJobs(jobs) {
       if (job.status === 'running') {
         const progress = document.createElement('progress');
 
-        if (job.stage === 'separating') {
+        if (PROGRESS_STAGES.has(job.stage)) {
           progress.value = job.fraction;
         }
 
@@ -440,8 +520,12 @@ function describeJob(job) {
 
   const stage = STAGE_LABELS[job.stage] ?? 'Starting';
 
-  if (job.kind === 'analyse') {
+  if (job.kind === 'analyse' || job.kind === 'lyrics-paste') {
     return stage;
+  }
+
+  if (job.kind === 'lyrics') {
+    return job.stage === 'transcribing' ? `Lyrics: ${stage}, ${Math.round(job.fraction * 100)}%` : `Lyrics: ${stage}`;
   }
 
   if (job.stage === 'separating') {
@@ -493,9 +577,12 @@ async function openSong(song) {
   player.setLoop(null, null);
   setStatus('Loading stems...');
   analysisView.showMissing({ analysing: isAnalysing(song.id) });
+  lyricsView.setAnalysis(null);
+  lyricsView.showMissing();
   showPosition();
   renderSongs();
   loadAnalysis();
+  loadLyrics();
 
   try {
     const names = STEM_ORDER.filter((name) => song.stems.includes(name));
@@ -569,6 +656,10 @@ function bindControls() {
     }
   });
 
+  for (const button of document.querySelectorAll('#view-tabs button')) {
+    button.addEventListener('click', () => setView(button.dataset.view));
+  }
+
   document.getElementById('analyse-song').addEventListener('click', () => {
     window.api.analyseSong(state.current.id);
   });
@@ -591,7 +682,7 @@ function bindControls() {
   });
 
   document.addEventListener('keydown', (event) => {
-    const typing = event.target.matches?.('input[type="text"], input[type="number"]');
+    const typing = event.target.matches?.('input[type="text"], input[type="number"], textarea, select');
 
     if (event.code === 'Space' && !event.repeat && !typing) {
       event.preventDefault();
@@ -644,6 +735,12 @@ async function start() {
   window.api.onAnalysisFinished((songId) => {
     if (state.current?.id === songId) {
       loadAnalysis();
+    }
+  });
+
+  window.api.onLyricsFinished((songId) => {
+    if (state.current?.id === songId) {
+      loadLyrics();
     }
   });
 

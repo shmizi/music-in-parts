@@ -8,6 +8,9 @@ const TEMP_SUFFIX = '.tmp';
 const ANALYSIS_FILE = 'analysis.json';
 const EDITED_ANALYSIS_FILE = 'analysis-edited.json';
 const EVIDENCE_FILE = 'chord-evidence.json';
+const LYRICS_FILE = 'lyrics.json';
+const EDITED_LYRICS_FILE = 'lyrics-edited.json';
+const PASTED_LYRICS_FILE = 'pasted-lyrics.txt';
 
 function songDir(id) {
   if (!SONG_ID.test(id)) {
@@ -125,6 +128,32 @@ async function revertAnalysis(id) {
   await fs.rm(path.join(songDir(id), EDITED_ANALYSIS_FILE), { force: true });
 }
 
+async function readLyrics(id) {
+  const edited = await readJsonIfPresent(path.join(songDir(id), EDITED_LYRICS_FILE));
+
+  if (edited) {
+    return { lyrics: edited, edited: true };
+  }
+
+  const automatic = await readJsonIfPresent(path.join(songDir(id), LYRICS_FILE));
+
+  return automatic ? { lyrics: automatic, edited: false } : null;
+}
+
+async function hasEditedLyrics(id) {
+  return (await readJsonIfPresent(path.join(songDir(id), EDITED_LYRICS_FILE))) !== null;
+}
+
+async function writePastedLyrics(id, text) {
+  const target = path.join(songDir(id), PASTED_LYRICS_FILE);
+  await fs.writeFile(target, text, 'utf8');
+  return target;
+}
+
+async function revertLyrics(id) {
+  await fs.rm(path.join(songDir(id), EDITED_LYRICS_FILE), { force: true });
+}
+
 function safeFileName(name) {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
 }
@@ -153,5 +182,9 @@ module.exports = {
   readAnalysis,
   saveEditedAnalysis,
   revertAnalysis,
+  readLyrics,
+  hasEditedLyrics,
+  writePastedLyrics,
+  revertLyrics,
   exportStems,
 };

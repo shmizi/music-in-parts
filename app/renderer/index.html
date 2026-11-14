@@ -75,19 +75,47 @@
         </div>
       </div>
 
+      <div id="view-tabs">
+        <button type="button" data-view="chords" aria-pressed="true">Chord Chart</button>
+        <button type="button" data-view="lyrics" aria-pressed="false">Lyrics</button>
+      </div>
+
       <div id="chord-area">
         <div id="inspector" hidden></div>
 
-        <details id="chord-check" hidden>
-          <summary id="chord-check-summary"></summary>
-          <div id="chord-check-body"></div>
-        </details>
+        <div id="chords-panel">
+          <details id="chord-check" hidden>
+            <summary id="chord-check-summary"></summary>
+            <div id="chord-check-body"></div>
+          </details>
 
-        <div id="chart-message" hidden>
-          <p id="chart-message-text"></p>
-          <button id="analyse-song" type="button">Analyse This Song</button>
+          <div id="chart-message" hidden>
+            <p id="chart-message-text"></p>
+            <button id="analyse-song" type="button">Analyse This Song</button>
+          </div>
+          <div id="chart"></div>
         </div>
-        <div id="chart"></div>
+
+        <div id="lyrics-panel" hidden>
+          <div id="lyrics-toolbar">
+            <label>Language <select id="lyrics-language"></select></label>
+            <button id="lyrics-transcribe" type="button">Find Lyrics</button>
+            <label id="lyrics-romanized-toggle" hidden><input id="lyrics-romanized" type="checkbox" checked> Show romanised</label>
+            <button id="lyrics-edit" type="button">Edit Lyrics</button>
+            <button id="lyrics-revert" type="button" hidden>Revert to Transcription</button>
+            <span id="lyrics-language-note" class="note"></span>
+          </div>
+          <p id="lyrics-message" class="note"></p>
+          <div id="lyrics-editor" hidden>
+            <p class="note">Paste or type the real lyrics, one sung line per line. Section labels like [Chorus] and lines of chords are skipped.</p>
+            <textarea id="lyrics-text" rows="12"></textarea>
+            <div class="editor-buttons">
+              <button id="lyrics-save" type="button">Save and Line Up</button>
+              <button id="lyrics-cancel" type="button">Cancel</button>
+            </div>
+          </div>
+          <div id="lyric-sheet"></div>
+        </div>
       </div>
     </div>
   </main>
